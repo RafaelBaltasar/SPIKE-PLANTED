@@ -1,0 +1,146 @@
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard, Clock, BookOpen, FileText,
+  Users, BarChart3, Settings, LogOut, HelpCircle, Bell, Search, Menu,
+  Building, CheckCircle
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+
+const navItems = {
+  student: [
+    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/attendance', icon: Clock,            label: 'Attendance' },
+    { to: '/journals',   icon: BookOpen,         label: 'Weekly Journals' },
+    { to: '/documents',  icon: FileText,         label: 'Documents' },
+  ],
+  coordinator: [
+    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/students',   icon: Users,           label: 'Student List' },
+    { to: '/review',     icon: CheckCircle,     label: 'Approvals' },
+    { to: '/documents',  icon: FileText,        label: 'Documents' },
+  ],
+  admin: [
+    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/students',   icon: Users,           label: 'All Students' },
+    { to: '/companies',  icon: Building,        label: 'Companies' },
+    { to: '/reports',    icon: BarChart3,       label: 'System Reports' },
+  ],
+};
+
+export default function AppLayout() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const items = navItems[user?.role] || navItems.student;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <div className="flex min-h-screen bg-background font-sans">
+      {/* ─── Sidebar ─── */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-30
+        w-[88px] bg-white flex flex-col items-center py-6
+        transition-transform duration-300 shadow-soft
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center mb-10">
+          <span className="text-xl font-extrabold text-white">S</span>
+        </div>
+
+        <nav className="flex flex-col gap-2 flex-1">
+          {items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              title={item.label}
+              className={({ isActive }) => `
+                w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer
+                transition-all duration-200
+                ${isActive
+                  ? 'bg-text text-white shadow-card'
+                  : 'text-muted hover:bg-primary-light hover:text-primary'}
+              `}
+            >
+              <item.icon size={20} strokeWidth={2} />
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="flex flex-col gap-2">
+          <button
+            title="Help"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center text-muted hover:bg-background cursor-pointer"
+          >
+            <HelpCircle size={20} />
+          </button>
+          <button
+            title="Settings"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center text-muted hover:bg-background cursor-pointer"
+          >
+            <Settings size={20} />
+          </button>
+          
+          {/* LOGOUT BUTTON */}
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center text-muted hover:bg-red-50 hover:text-danger transition cursor-pointer"
+          >
+            <LogOut size={20} />
+          </button>
+          
+          <div className="mt-3 w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-sm font-bold text-primary">
+            {user?.fullName?.charAt(0) || 'U'}
+          </div>
+        </div>
+      </aside>
+
+      {/* ─── Main ─── */}
+      <main className="flex-1 flex flex-col min-w-0 ml-[88px] lg:ml-0">
+        <header className="flex items-center justify-between gap-4 px-6 lg:px-10 py-6">
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="lg:hidden w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-soft cursor-pointer"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="flex-1 max-w-md relative">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full h-11 pl-11 pr-4 rounded-2xl bg-white shadow-soft text-sm outline-none focus:ring-2 focus:ring-primary-light border-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button className="relative w-11 h-11 rounded-2xl bg-white shadow-soft flex items-center justify-center cursor-pointer">
+              <Bell size={18} className="text-text" />
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger rounded-full" />
+            </button>
+            <div className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft">
+              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
+                {user?.fullName?.charAt(0) || 'U'}
+              </div>
+              <div className="text-xs">
+                <p className="font-semibold leading-tight">{user?.fullName}</p>
+                <p className="text-muted capitalize leading-tight">{user?.role}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 px-6 lg:px-10 pb-10">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+}
