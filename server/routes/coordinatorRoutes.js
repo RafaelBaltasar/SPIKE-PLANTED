@@ -1,24 +1,38 @@
+
 const express = require('express');
 const router = express.Router();
 
 const {
   getAllStudents,
   getStudentRecord,
+  updateStudentStatus,
   reviewJournal,
-  reviewAttendance
+  reviewAttendance,
+  getDashboardSummary,
+  getPendingAttendance
 } = require('../controllers/coordinatorController');
 
-const { protect, authorize } = require('../middleware/authMiddleware');
+const {
+  protect,
+  authorize
+} = require('../middleware/authMiddleware');
 
-// All routes below require coordinator or admin
+// All routes below require coordinator or admin access
 router.use(protect, authorize('coordinator', 'admin'));
+
+// Dashboard summary
+router.get('/dashboard-summary', getDashboardSummary);
 
 // Students
 router.get('/students', getAllStudents);
 router.get('/students/:studentId', getStudentRecord);
+router.patch('/students/:studentId/status', updateStudentStatus);
 
-// Journal & attendance review
+// Journal review
 router.patch('/journals/:id/review', reviewJournal);
+
+// Attendance
+router.get('/attendance', getPendingAttendance);
 router.patch('/attendance/:id/review', reviewAttendance);
 
 module.exports = router;

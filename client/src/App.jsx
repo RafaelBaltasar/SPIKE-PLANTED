@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -14,6 +15,7 @@ import Documents from './pages/student/Documents';
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
 import StudentList from './pages/coordinator/StudentList';
+import StudentDetails from './pages/coordinator/StudentDetails';
 import ReviewSubmissions from './pages/coordinator/ReviewSubmissions';
 
 // Admin Pages
@@ -23,8 +25,10 @@ import SystemReports from './pages/admin/SystemReports';
 
 function DashboardRouter() {
   const { user } = useAuth();
+
   if (user?.role === 'admin') return <AdminDashboard />;
   if (user?.role === 'coordinator') return <CoordinatorDashboard />;
+
   return <StudentDashboard />;
 }
 
@@ -35,9 +39,15 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
-          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/dashboard" element={<DashboardRouter />} />
-            
+
             {/* STUDENT */}
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/journals" element={<Journals />} />
@@ -45,8 +55,12 @@ export default function App() {
 
             {/* COORDINATOR & ADMIN */}
             <Route path="/students" element={<StudentList />} />
+            <Route
+              path="/students/:studentId"
+              element={<StudentDetails />}
+            />
             <Route path="/review" element={<ReviewSubmissions />} />
-            
+
             {/* ADMIN ONLY */}
             <Route path="/companies" element={<ManageCompanies />} />
             <Route path="/reports" element={<SystemReports />} />

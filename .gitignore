@@ -21,3 +21,6 @@ Thumbs.db
 
 # Editor settings
 .vscode/
+
+# Uploaded student documents
+server/uploads/

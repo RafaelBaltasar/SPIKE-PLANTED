@@ -10,9 +10,18 @@ const {
 } = require('../controllers/weeklyJournalController');
 
 const {
+  getAllJournals,
+  reviewJournal
+} = require('../controllers/coordinatorController');
+
+const {
   protect,
   authorize
 } = require('../middleware/authMiddleware');
+
+// ─────────────────────────────────────────────
+// STUDENT ROUTES
+// ─────────────────────────────────────────────
 
 // Student: View own weekly journals
 router.get(
@@ -38,12 +47,32 @@ router.put(
   updateJournal
 );
 
-// Student: Submit a journal for coordinator review
+// Student: Submit a journal for review
 router.patch(
   '/:id/submit',
   protect,
   authorize('student'),
   submitJournal
+);
+
+// ─────────────────────────────────────────────
+// COORDINATOR / ADMIN ROUTES
+// ─────────────────────────────────────────────
+
+// Get all submitted journals
+router.get(
+  '/all',
+  protect,
+  authorize('coordinator', 'admin'),
+  getAllJournals
+);
+
+// Review a submitted journal
+router.patch(
+  '/:id/review',
+  protect,
+  authorize('coordinator', 'admin'),
+  reviewJournal
 );
 
 module.exports = router;

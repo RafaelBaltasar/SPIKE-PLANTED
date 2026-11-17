@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -10,59 +11,60 @@ const ojtRoutes = require('./routes/ojtRoutes');
 const weeklyJournalRoutes = require('./routes/weeklyJournalRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const coordinatorRoutes = require('./routes/coordinatorRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─────────────────────────────────────────────────────────────
-// Middleware
-// ─────────────────────────────────────────────────────────────
+// CORS CONFIGURATION
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
 
+// GENERAL MIDDLEWARE
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically
+// Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ─────────────────────────────────────────────────────────────
-// Health checks & root
-// ─────────────────────────────────────────────────────────────
+// ROOT & HEALTH CHECK
 app.get('/', (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: 'SPIKE PLANTED OJT Tracker API is running!'
   });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     status: 'OK',
-    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+    database: mongoose.connection.readyState === 1
+      ? 'Connected'
+      : 'Disconnected'
   });
 });
 
-// ─────────────────────────────────────────────────────────────
-// Routes
-// ─────────────────────────────────────────────────────────────
+// API ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/ojt', ojtRoutes);
 app.use('/api/weekly-journals', weeklyJournalRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
+app.use('/api/admin', adminRoutes);
 
-// ─────────────────────────────────────────────────────────────
-// 404 handler
-// ─────────────────────────────────────────────────────────────
+// 404 HANDLER
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -70,9 +72,7 @@ app.use((req, res) => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────
-// Global error handler
-// ─────────────────────────────────────────────────────────────
+// GLOBAL ERROR HANDLER
 app.use((err, req, res, next) => {
   console.error('Server error:', err.message);
 
@@ -83,15 +83,13 @@ app.use((err, req, res, next) => {
     });
   }
 
-  res.status(err.status || 500).json({
+  return res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error.'
   });
 });
 
-// ─────────────────────────────────────────────────────────────
-// Start server
-// ─────────────────────────────────────────────────────────────
+// START SERVER
 async function startServer() {
   try {
     if (!process.env.MONGODB_URI) {
@@ -102,12 +100,12 @@ async function startServer() {
       throw new Error('JWT_SECRET is missing from the .env file.');
     }
 
-    // ✅ RECONNECTING TO REAL DATABASE
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ MongoDB Atlas connected successfully!');
+
+    console.log('MongoDB Atlas connected successfully!');
 
     app.listen(PORT, () => {
-      console.log(`✅ SPIKE PLANTED API running on http://localhost:${PORT}`);
+      console.log(`SPIKE PLANTED API running on http://localhost:${PORT}`);
     });
 
   } catch (error) {

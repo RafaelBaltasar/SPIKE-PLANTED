@@ -1,12 +1,14 @@
+
 const mongoose = require('mongoose');
+
 const Student = require('../models/Student');
 const OjtRecord = require('../models/OjtRecord');
 const WeeklyJournal = require('../models/WeeklyJournal');
 const Document = require('../models/Document');
 
-// ─────────────────────────────────────────────────────────────
-// COORDINATOR: LIST ALL STUDENTS
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COORDINATOR: GET ALL STUDENTS
+// ─────────────────────────────────────────────
 exports.getAllStudents = async (req, res) => {
   try {
     const students = await Student.find().sort({ lastName: 1 });
@@ -16,9 +18,9 @@ exports.getAllStudents = async (req, res) => {
       count: students.length,
       students
     });
-
   } catch (error) {
     console.error('Get all students error:', error.message);
+
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve students.'
@@ -26,10 +28,9 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// COORDINATOR: GET A STUDENT'S FULL RECORD
-// (attendance + journals + documents + summary)
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COORDINATOR: GET STUDENT RECORD
+// ─────────────────────────────────────────────
 exports.getStudentRecord = async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -42,6 +43,7 @@ exports.getStudentRecord = async (req, res) => {
     }
 
     const student = await Student.findById(studentId);
+
     if (!student) {
       return res.status(404).json({
         success: false,
@@ -55,46 +57,26 @@ exports.getStudentRecord = async (req, res) => {
       Document.find({ student: studentId }).sort({ createdAt: -1 })
     ]);
 
-    // Attendance summary
-    const completedRecords = attendance.filter(r => r.timeOut != null);
-    const totalHours = completedRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-
-    // Journal summary
-    const journalSummary = {
-      total: journals.length,
-      approved: journals.filter(j => j.status === 'Approved').length,
-      submitted: journals.filter(j => j.status === 'Submitted').length,
-      draft: journals.filter(j => j.status === 'Draft').length,
-      rejected: journals.filter(j => j.status === 'Rejected').length
-    };
-
-    // Document summary
-    const docSummary = {
-      total: documents.length,
-      approved: documents.filter(d => d.status === 'Approved').length,
-      pending: documents.filter(d => d.status === 'Pending').length,
-      rejected: documents.filter(d => d.status === 'Rejected').length
-    };
+    const totalHours = attendance
+      .filter(record => record.timeOut && record.status === 'Approved')
+      .reduce((total, record) => total + (record.totalHours || 0), 0);
 
     return res.status(200).json({
       success: true,
       student,
       summary: {
-        attendance: {
-          totalDays: attendance.length,
-          completedDays: completedRecords.length,
-          totalHours: Number(totalHours.toFixed(2))
-        },
-        journals: journalSummary,
-        documents: docSummary
+        totalHours: Number(totalHours.toFixed(2)),
+        attendanceDays: attendance.length,
+        totalJournals: journals.length,
+        totalDocuments: documents.length
       },
       attendance,
       journals,
       documents
     });
-
   } catch (error) {
     console.error('Get student record error:', error.message);
+
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve student record.'
@@ -102,10 +84,9 @@ exports.getStudentRecord = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// COORDINATOR: APPROVE / REJECT A JOURNAL
-// (use this from the student record page)
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COORDINATOR: REVIEW WEEKLY JOURNAL
+// ─────────────────────────────────────────────
 exports.reviewJournal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -121,12 +102,22 @@ exports.reviewJournal = async (req, res) => {
     if (!['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be either "Approved" or "Rejected".'
+        message: 'Status must be Approved or Rejected.'
       });
     }
 
-    const journal = await WeeklyJournal.findByIdAndUpdate(
-      id,
+    if (status === 'Rejected' && (!feedback || !feedback.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback is required when rejecting a journal.'
+      });
+    }
+
+    const journal = await WeeklyJournal.findOneAndUpdate(
+      {
+        _id: id,
+        status: 'Submitted'
+      },
       {
         $set: {
           status,
@@ -135,13 +126,16 @@ exports.reviewJournal = async (req, res) => {
           reviewedAt: new Date()
         }
       },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true
+      }
     ).populate('student', 'studentNumber firstName lastName program');
 
     if (!journal) {
       return res.status(404).json({
         success: false,
-        message: 'Journal not found.'
+        message: 'Submitted journal not found. It may already have been reviewed.'
       });
     }
 
@@ -150,9 +144,9 @@ exports.reviewJournal = async (req, res) => {
       message: `Journal ${status.toLowerCase()} successfully!`,
       journal
     });
-
   } catch (error) {
     console.error('Review journal error:', error.message);
+
     return res.status(500).json({
       success: false,
       message: 'Failed to review journal.'
@@ -160,9 +154,9 @@ exports.reviewJournal = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// COORDINATOR: APPROVE / REJECT AN ATTENDANCE RECORD
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COORDINATOR: REVIEW ATTENDANCE
+// ─────────────────────────────────────────────
 exports.reviewAttendance = async (req, res) => {
   try {
     const { id } = req.params;
@@ -171,47 +165,234 @@ exports.reviewAttendance = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid attendance record ID.'
+        message: 'Invalid attendance ID.'
       });
     }
 
     if (!['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be either "Approved" or "Rejected".'
+        message: 'Status must be Approved or Rejected.'
       });
     }
 
-    const record = await OjtRecord.findByIdAndUpdate(
-      id,
+    if (status === 'Rejected' && (!remarks || !remarks.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Remarks are required when rejecting attendance.'
+      });
+    }
+
+    const attendance = await OjtRecord.findOneAndUpdate(
+      {
+        _id: id,
+        status: 'Pending',
+        timeOut: { $ne: null }
+      },
       {
         $set: {
           status,
           remarks: (remarks || '').trim(),
-          reviewedBy: req.user._id
+          reviewedBy: req.user._id,
+          reviewedAt: new Date()
         }
       },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true
+      }
     ).populate('student', 'studentNumber firstName lastName program');
 
-    if (!record) {
+    if (!attendance) {
       return res.status(404).json({
         success: false,
-        message: 'Attendance record not found.'
+        message: 'Pending completed attendance record not found. It may already have been reviewed.'
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Attendance record ${status.toLowerCase()} successfully!`,
-      attendance: record
+      message: `Attendance ${status.toLowerCase()} successfully!`,
+      attendance
     });
-
   } catch (error) {
     console.error('Review attendance error:', error.message);
+
     return res.status(500).json({
       success: false,
       message: 'Failed to review attendance.'
+    });
+  }
+};
+
+// ─────────────────────────────────────────────
+// COORDINATOR: GET DASHBOARD SUMMARY
+// ─────────────────────────────────────────────
+exports.getDashboardSummary = async (req, res) => {
+  try {
+    const [
+      totalStudents,
+      pendingJournals,
+      pendingAttendance,
+      pendingDocuments,
+      approvedHours
+    ] = await Promise.all([
+      Student.countDocuments(),
+
+      WeeklyJournal.countDocuments({
+        status: 'Submitted'
+      }),
+
+      OjtRecord.countDocuments({
+        status: 'Pending',
+        timeOut: { $ne: null }
+      }),
+
+      Document.countDocuments({
+        status: 'Pending'
+      }),
+
+      OjtRecord.aggregate([
+        {
+          $match: {
+            status: 'Approved',
+            timeOut: { $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: '$student',
+            totalHours: { $sum: '$totalHours' }
+          }
+        }
+      ])
+    ]);
+
+    const completedOjt = approvedHours.filter(
+      record => record.totalHours >= 486
+    ).length;
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        totalStudents,
+        pendingJournals,
+        pendingAttendance,
+        pendingDocuments,
+        pendingApprovals:
+          pendingJournals + pendingAttendance + pendingDocuments,
+        completedOjt
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard summary error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve dashboard summary.'
+    });
+  }
+};
+
+// ─────────────────────────────────────────────
+// COORDINATOR: GET ALL SUBMITTED JOURNALS
+// ─────────────────────────────────────────────
+exports.getAllJournals = async (req, res) => {
+  try {
+    const journals = await WeeklyJournal.find({
+      status: 'Submitted'
+    })
+      .populate('student', 'studentNumber firstName lastName program')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: journals.length,
+      journals
+    });
+  } catch (error) {
+    console.error('Get all journals error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve submitted journals.'
+    });
+  }
+};
+
+// ─────────────────────────────────────────────
+// COORDINATOR: GET ALL PENDING COMPLETED ATTENDANCE
+// ─────────────────────────────────────────────
+exports.getPendingAttendance = async (req, res) => {
+  try {
+    const attendance = await OjtRecord.find({
+      status: 'Pending',
+      timeOut: { $ne: null }
+    })
+      .populate('student', 'studentNumber firstName lastName program')
+      .sort({ date: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: attendance.length,
+      attendance
+    });
+  } catch (error) {
+    console.error('Get pending attendance error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve pending attendance.'
+    });
+  }
+};
+
+// COORDINATOR: UPDATE STUDENT ACCOUNT STATUS
+exports.updateStudentStatus = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { status } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid student ID.'
+      });
+    }
+
+    const allowedStatuses = ['Active', 'Inactive'];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be Active or Inactive.'
+      });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found.'
+      });
+    }
+
+    student.status = status;
+    await student.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Student account ${status.toLowerCase()} successfully.`,
+      student
+    });
+
+  } catch (error) {
+    console.error('Update student status error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update student account status.'
     });
   }
 };

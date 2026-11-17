@@ -1,6 +1,7 @@
 
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Student = require('../models/Student');
 
 // Verify whether the user is logged in
 exports.protect = async (req, res, next) => {
@@ -36,12 +37,33 @@ exports.protect = async (req, res, next) => {
       });
     }
 
+    // Check Student account status
+    if (user.role === 'student') {
+      const student = await Student.findById(user.student);
+
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student profile not found. Please contact the OJT Coordinator.'
+        });
+      }
+
+      if (student.status !== 'Active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your student account is inactive. Please contact the OJT Coordinator.'
+        });
+      }
+    }
+
     // Attach authenticated user to request
     req.user = user;
 
     next();
 
   } catch (error) {
+    console.error('Authentication error:', error.message);
+
     return res.status(401).json({
       success: false,
       message: 'Invalid or expired token.'

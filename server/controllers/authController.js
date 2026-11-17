@@ -1,28 +1,46 @@
+
 const User = require('../models/User');
 const Student = require('../models/Student');
 const jwt = require('jsonwebtoken');
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: '30d'
+  });
 };
 
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, fullName, studentNumber, firstName, lastName, program, yearLevel, department } = req.body;
+    const {
+      email,
+      password,
+      role,
+      fullName,
+      studentNumber,
+      firstName,
+      lastName,
+      program,
+      yearLevel,
+      department
+    } = req.body;
 
-    // Check if user exists
+    // Check if user already exists
     let user = await User.findOne({ email });
+
     if (user) {
-      return res.status(400).json({ success: false, message: 'Email already registered.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered.'
+      });
     }
 
-    // Determine approval status (Students are Active, Faculty/Admin are Pending)
+    // Determine approval status
     const isPending = role === 'coordinator' || role === 'admin';
 
     let studentId = null;
 
-    // If student, create Student profile first
+    // Create Student profile
     if (role === 'student') {
       const newStudent = await Student.create({
         studentNumber,
@@ -33,6 +51,7 @@ exports.register = async (req, res) => {
         yearLevel,
         status: 'Active'
       });
+
       studentId = newStudent._id;
     }
 
@@ -44,10 +63,10 @@ exports.register = async (req, res) => {
       role,
       student: studentId,
       department: department || null,
-      isActive: !isPending // If pending, they are inactive until approved
+      isActive: !isPending
     });
 
-    // If pending, do NOT send a token. Tell frontend to wait.
+    // Pending coordinator/admin accounts
     if (isPending) {
       return res.status(201).json({
         success: true,
@@ -56,9 +75,10 @@ exports.register = async (req, res) => {
       });
     }
 
-    // If student, send token immediately
+    // Generate token
     const token = generateToken(user._id);
-    res.status(201).json({
+
+    return res.status(201).json({
       success: true,
       token,
       user: {
@@ -72,7 +92,11 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ success: false, message: 'Failed to register account.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to register account.'
+    });
   }
 };
 
@@ -82,21 +106,54 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
+
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.'
+      });
     }
 
     const isMatch = await user.comparePassword(password);
+
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.'
+      });
     }
 
+    // Check account activation
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: 'Your account is pending admin approval.' });
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is pending admin approval.'
+      });
     }
 
+    // Check Student profile status
+    if (user.role === 'student') {
+      const student = await Student.findById(user.student);
+
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student profile not found. Please contact the OJT Coordinator.'
+        });
+      }
+
+      if (student.status !== 'Active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your student account is inactive. Please contact the OJT Coordinator.'
+        });
+      }
+    }
+
+    // Generate token
     const token = generateToken(user._id);
-    res.status(200).json({
+
+    return res.status(200).json({
       success: true,
       token,
       user: {
@@ -110,6 +167,10 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ success: false, message: 'Failed to login.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to login.'
+    });
   }
 };
