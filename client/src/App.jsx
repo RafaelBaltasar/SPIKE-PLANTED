@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext'; // <-- Added NotificationProvider
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 
@@ -30,7 +31,7 @@ function DashboardRouter() {
 
   if (user?.role === 'admin') return <AdminDashboard />;
   if (user?.role === 'coordinator') return <CoordinatorDashboard />;
-  if (user?.role === 'staff') return <StaffDashboard />; // <-- Added Staff routing
+  if (user?.role === 'staff') return <StaffDashboard />;
 
   return <StudentDashboard />;
 }
@@ -38,43 +39,46 @@ function DashboardRouter() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+      {/* WRAP THE APP WITH NOTIFICATION PROVIDER */}
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<DashboardRouter />} />
-
-            {/* STUDENT */}
-            <Route path="/attendance" element={<Attendance />} />
-            <Route path="/journals" element={<Journals />} />
-            <Route path="/documents" element={<Documents />} />
-
-            {/* STAFF (COMPANY SUPERVISOR) */}
-            <Route path="/interns" element={<StaffDashboard />} />
-
-            {/* COORDINATOR & ADMIN */}
-            <Route path="/students" element={<StudentList />} />
             <Route
-              path="/students/:studentId"
-              element={<StudentDetails />}
-            />
-            <Route path="/review" element={<ReviewSubmissions />} />
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardRouter />} />
 
-            {/* ADMIN ONLY */}
-            <Route path="/companies" element={<ManageCompanies />} />
-            <Route path="/reports" element={<SystemReports />} />
-          </Route>
+              {/* STUDENT */}
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/journals" element={<Journals />} />
+              <Route path="/documents" element={<Documents />} />
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+              {/* STAFF (COMPANY SUPERVISOR) */}
+              <Route path="/interns" element={<StaffDashboard />} />
+
+              {/* COORDINATOR & ADMIN */}
+              <Route path="/students" element={<StudentList />} />
+              <Route
+                path="/students/:studentId"
+                element={<StudentDetails />}
+              />
+              <Route path="/review" element={<ReviewSubmissions />} />
+
+              {/* ADMIN ONLY */}
+              <Route path="/companies" element={<ManageCompanies />} />
+              <Route path="/reports" element={<SystemReports />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

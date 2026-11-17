@@ -2,10 +2,12 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Clock, BookOpen, FileText,
   Users, BarChart3, Settings, LogOut, HelpCircle, Bell, Search, Menu,
-  Building, CheckCircle
+  Building, CheckCircle, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext'; // <-- Import
 import { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns'; // <-- Import for time formatting
 
 const navItems = {
   student: [
@@ -13,6 +15,10 @@ const navItems = {
     { to: '/attendance', icon: Clock,            label: 'Attendance' },
     { to: '/journals',   icon: BookOpen,         label: 'Weekly Journals' },
     { to: '/documents',  icon: FileText,         label: 'Documents' },
+  ],
+  staff: [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/interns',   icon: Users,           label: 'My Interns' },
   ],
   coordinator: [
     { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
@@ -30,6 +36,7 @@ const navItems = {
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, isOpen, setIsOpen, markAllAsRead, clearNotifications } = useNotifications(); // <-- Notification Hook
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -74,12 +81,14 @@ export default function AppLayout() {
 
         <div className="flex flex-col gap-2">
           <button
+            onClick={() => alert('Help Center coming soon!')}
             title="Help"
             className="w-12 h-12 rounded-2xl flex items-center justify-center text-muted hover:bg-background cursor-pointer"
           >
             <HelpCircle size={20} />
           </button>
           <button
+            onClick={() => alert('Settings coming soon!')}
             title="Settings"
             className="w-12 h-12 rounded-2xl flex items-center justify-center text-muted hover:bg-background cursor-pointer"
           >
@@ -120,11 +129,53 @@ export default function AppLayout() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
-            <button className="relative w-11 h-11 rounded-2xl bg-white shadow-soft flex items-center justify-center cursor-pointer">
-              <Bell size={18} className="text-text" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger rounded-full" />
-            </button>
+          <div className="flex items-center gap-3 relative">
+            
+            {/* NOTIFICATION BELL */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="relative w-11 h-11 rounded-2xl bg-white shadow-soft flex items-center justify-center cursor-pointer hover:bg-gray-50 transition"
+              >
+                <Bell size={18} className="text-text" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white ring-2 ring-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* NOTIFICATION DROPDOWN */}
+              {isOpen && (
+                <div className="absolute top-14 right-0 w-80 bg-white rounded-3xl shadow-card border border-border overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between p-4 border-b border-border">
+                    <h3 className="font-extrabold text-sm text-text">Notifications</h3>
+                    <button onClick={() => setIsOpen(false)} className="text-muted hover:text-text"><X size={16}/></button>
+                  </div>
+                  
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-sm text-muted">No new notifications.</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className={`p-4 border-b border-border/50 text-sm ${n.read ? 'bg-white' : 'bg-primary-light/30'}`}>
+                          <p className="text-text">{n.text}</p>
+                          <p className="text-[10px] text-muted mt-1">{formatDistanceToNow(new Date(n.time))} ago</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {notifications.length > 0 && (
+                    <div className="p-3 bg-background flex justify-between border-t border-border">
+                      <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:underline">Mark all as read</button>
+                      <button onClick={clearNotifications} className="text-xs font-bold text-danger hover:underline">Clear all</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft">
               <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
                 {user?.fullName?.charAt(0) || 'U'}
@@ -137,7 +188,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <div className="flex-1 px-6 lg:px-10 pb-10">
+        <div className="flex-1 px-6 lg:px-10 pb-10" onClick={() => setIsOpen(false)}>
           <Outlet />
         </div>
       </main>

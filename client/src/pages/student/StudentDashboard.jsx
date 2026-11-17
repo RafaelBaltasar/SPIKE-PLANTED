@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import {
   Play, Circle, Clock, Calendar, FileText, Star, Square
@@ -8,10 +7,12 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext'; // <-- Added Import
 import { api } from '../../api/axios';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const { addNotification } = useNotifications(); // <-- Added Hook
 
   const [attendance, setAttendance] = useState({
     summary: null,
@@ -66,8 +67,10 @@ export default function StudentDashboard() {
 
       if (action === 'time-in') {
         await api.post('/ojt/time-in');
+        addNotification('You have successfully timed in.', 'success'); // <-- Added Notification
       } else {
         await api.post('/ojt/time-out');
+        addNotification('You have successfully timed out.', 'success'); // <-- Added Notification
       }
 
       // Refresh attendance from MongoDB
