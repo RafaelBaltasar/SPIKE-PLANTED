@@ -11,7 +11,8 @@ const weeklyJournalRoutes = require('./routes/weeklyJournalRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const coordinatorRoutes = require('./routes/coordinatorRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const companyRoutes = require('./routes/companyRoutes'); // <-- Added Company routes
+const companyRoutes = require('./routes/companyRoutes');
+const profileRoutes = require('./routes/profileRoutes'); // <-- Added Profile routes
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -63,7 +64,8 @@ app.use('/api/weekly-journals', weeklyJournalRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/companies', companyRoutes); // <-- Mounted Company routes
+app.use('/api/companies', companyRoutes);
+app.use('/api/profile', profileRoutes); // <-- Mounted Profile routes
 
 // 404 HANDLER
 app.use((req, res) => {

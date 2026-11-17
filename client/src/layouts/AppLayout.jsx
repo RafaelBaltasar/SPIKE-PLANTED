@@ -5,9 +5,10 @@ import {
   Building, CheckCircle, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationContext'; // <-- Import
+import { useNotifications } from '../context/NotificationContext';
 import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns'; // <-- Import for time formatting
+import { formatDistanceToNow } from 'date-fns';
+import ProfilePopover from '../components/ProfilePopover'; // <-- Added Import
 
 const navItems = {
   student: [
@@ -36,15 +37,22 @@ const navItems = {
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { notifications, unreadCount, isOpen, setIsOpen, markAllAsRead, clearNotifications } = useNotifications(); // <-- Notification Hook
+  const { notifications, unreadCount, isOpen, setIsOpen, markAllAsRead, clearNotifications } = useNotifications();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showProfile, setShowProfile] = useState(false); // <-- Added Profile State
 
   const items = navItems[user?.role] || navItems.student;
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // Close both dropdowns when clicking anywhere on the main content
+  const handleMainClick = () => {
+    setIsOpen(false);
+    setShowProfile(false);
   };
 
   return (
@@ -95,7 +103,6 @@ export default function AppLayout() {
             <Settings size={20} />
           </button>
           
-          {/* LOGOUT BUTTON */}
           <button
             onClick={handleLogout}
             title="Logout"
@@ -134,7 +141,7 @@ export default function AppLayout() {
             {/* NOTIFICATION BELL */}
             <div className="relative">
               <button 
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => { setIsOpen(!isOpen); setShowProfile(false); }}
                 className="relative w-11 h-11 rounded-2xl bg-white shadow-soft flex items-center justify-center cursor-pointer hover:bg-gray-50 transition"
               >
                 <Bell size={18} className="text-text" />
@@ -176,19 +183,38 @@ export default function AppLayout() {
               )}
             </div>
 
-            <div className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
-                {user?.fullName?.charAt(0) || 'U'}
-              </div>
-              <div className="text-xs">
-                <p className="font-semibold leading-tight">{user?.fullName}</p>
-                <p className="text-muted capitalize leading-tight">{user?.role}</p>
-              </div>
+            {/* CLICKABLE PROFILE */}
+            <div className="relative">
+              <button 
+                onClick={() => { setShowProfile(!showProfile); setIsOpen(false); }}
+                className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft hover:bg-gray-50 transition cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
+                  {user?.fullName?.charAt(0) || 'U'}
+                </div>
+                <div className="text-xs text-left">
+                  <p className="font-semibold leading-tight">{user?.fullName}</p>
+                  <p className="text-muted capitalize leading-tight">{user?.role}</p>
+                </div>
+              </button>
+
+              {/* PROFILE DROPDOWN */}
+              {showProfile && (
+                <>
+                  {/* Invisible backdrop to close on click outside */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)}></div>
+                  
+                  <div className="absolute top-14 right-0 z-50">
+                    <ProfilePopover onClose={() => setShowProfile(false)} />
+                  </div>
+                </>
+              )}
             </div>
+
           </div>
         </header>
 
-        <div className="flex-1 px-6 lg:px-10 pb-10" onClick={() => setIsOpen(false)}>
+        <div className="flex-1 px-6 lg:px-10 pb-10" onClick={handleMainClick}>
           <Outlet />
         </div>
       </main>
