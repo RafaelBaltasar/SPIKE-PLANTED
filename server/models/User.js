@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -26,13 +25,26 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ['student', 'coordinator', 'admin'],
+      // Added 'staff' to the allowed roles
+      enum: ['student', 'coordinator', 'admin', 'staff'],
       required: true
     },
 
     student: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Student',
+      default: null
+    },
+
+    // New field to store the supervisor's company
+    company: {
+      type: String,
+      default: null
+    },
+
+    // New field to store the faculty/admin department
+    department: {
+      type: String,
       default: null
     },
 

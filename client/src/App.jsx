@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -11,6 +10,9 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import Attendance from './pages/student/Attendance';
 import Journals from './pages/student/Journals';
 import Documents from './pages/student/Documents';
+
+// Staff (Company Supervisor) Pages
+import StaffDashboard from './pages/staff/StaffDashboard';
 
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
@@ -28,6 +30,7 @@ function DashboardRouter() {
 
   if (user?.role === 'admin') return <AdminDashboard />;
   if (user?.role === 'coordinator') return <CoordinatorDashboard />;
+  if (user?.role === 'staff') return <StaffDashboard />; // <-- Added Staff routing
 
   return <StudentDashboard />;
 }
@@ -52,6 +55,9 @@ export default function App() {
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/journals" element={<Journals />} />
             <Route path="/documents" element={<Documents />} />
+
+            {/* STAFF (COMPANY SUPERVISOR) */}
+            <Route path="/interns" element={<StaffDashboard />} />
 
             {/* COORDINATOR & ADMIN */}
             <Route path="/students" element={<StudentList />} />

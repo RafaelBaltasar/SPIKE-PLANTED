@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -26,7 +25,8 @@ const initialForm = {
   lastName: '',
   program: '',
   yearLevel: '',
-  department: ''
+  department: '',
+  company: '' // <-- Added company field
 };
 
 export default function LoginPage() {
@@ -42,6 +42,7 @@ export default function LoginPage() {
 
   const isRegister = mode === 'register';
   const isStudent = form.role === 'student';
+  const isStaff = form.role === 'staff'; // <-- Added staff check
 
   // Display the reason an inactive student was logged out.
   useEffect(() => {
@@ -95,6 +96,10 @@ export default function LoginPage() {
                   lastName: form.lastName.trim(),
                   program: form.program,
                   yearLevel: form.yearLevel
+                }
+              : isStaff
+              ? {
+                  company: form.company.trim() // <-- Send company for staff
                 }
               : {
                   department: form.department.trim()
@@ -299,6 +304,8 @@ export default function LoginPage() {
                     required
                   >
                     <option value="student">Student Intern</option>
+                    {/* ADDED STAFF OPTION */}
+                    <option value="staff">Company Supervisor (Staff)</option>
                     <option value="coordinator">
                       OJT Coordinator (Faculty)
                     </option>
@@ -322,12 +329,9 @@ export default function LoginPage() {
 
                 {isStudent ? (
                   <>
-
                     <div className="form-row">
-
                       <div className="form-group">
                         <label htmlFor="firstName">First name</label>
-
                         <input
                           id="firstName"
                           name="firstName"
@@ -338,10 +342,8 @@ export default function LoginPage() {
                           required
                         />
                       </div>
-
                       <div className="form-group">
                         <label htmlFor="lastName">Last name</label>
-
                         <input
                           id="lastName"
                           name="lastName"
@@ -352,14 +354,12 @@ export default function LoginPage() {
                           required
                         />
                       </div>
-
                     </div>
 
                     <div className="form-group">
                       <label htmlFor="studentNumber">
                         Student number
                       </label>
-
                       <input
                         id="studentNumber"
                         name="studentNumber"
@@ -372,10 +372,8 @@ export default function LoginPage() {
                     </div>
 
                     <div className="form-row">
-
                       <div className="form-group">
                         <label htmlFor="program">Program</label>
-
                         <input
                           id="program"
                           name="program"
@@ -386,10 +384,8 @@ export default function LoginPage() {
                           required
                         />
                       </div>
-
                       <div className="form-group">
                         <label htmlFor="yearLevel">Year level</label>
-
                         <select
                           id="yearLevel"
                           name="yearLevel"
@@ -405,17 +401,28 @@ export default function LoginPage() {
                           <option value="5th Year">5th Year</option>
                         </select>
                       </div>
-
                     </div>
-
                   </>
+                ) : isStaff ? (
+                  // COMPANY FIELD FOR STAFF
+                  <div className="form-group">
+                    <label htmlFor="company">Company Name</label>
+                    <input
+                      id="company"
+                      name="company"
+                      type="text"
+                      placeholder="e.g. Accenture"
+                      value={form.company}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
                 ) : (
-
+                  // DEPARTMENT FIELD FOR FACULTY/ADMIN
                   <div className="form-group">
                     <label htmlFor="department">
                       Department / Office
                     </label>
-
                     <input
                       id="department"
                       name="department"
@@ -426,7 +433,6 @@ export default function LoginPage() {
                       required
                     />
                   </div>
-
                 )}
 
               </>

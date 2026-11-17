@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 
@@ -9,7 +8,9 @@ const {
   reviewJournal,
   reviewAttendance,
   getDashboardSummary,
-  getPendingAttendance
+  getPendingAttendance,
+  getPendingAccounts, // <-- Added
+  approveAccount      // <-- Added
 } = require('../controllers/coordinatorController');
 
 const {
@@ -34,5 +35,11 @@ router.patch('/journals/:id/review', reviewJournal);
 // Attendance
 router.get('/attendance', getPendingAttendance);
 router.patch('/attendance/:id/review', reviewAttendance);
+
+// ─────────────────────────────────────────────
+// ADMIN: PENDING ACCOUNT APPROVALS
+// ─────────────────────────────────────────────
+router.get('/pending-accounts', getPendingAccounts);
+router.patch('/pending-accounts/:id/approve', approveAccount);
 
 module.exports = router;

@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 
 const User = require('../models/User');
@@ -31,11 +30,12 @@ exports.getDashboardSummary = async (req, res) => {
 
       User.countDocuments(),
 
+      // FETCH PENDING USERS (Added 'staff' and specific fields)
       User.find({
         isActive: false,
-        role: { $in: ['coordinator', 'admin'] }
+        role: { $in: ['coordinator', 'admin', 'staff'] }
       })
-        .select('fullName email role createdAt')
+        .select('fullName email role department company createdAt')
         .sort({ createdAt: -1 }),
 
       WeeklyJournal.countDocuments({
@@ -117,7 +117,7 @@ exports.approveUserAccount = async (req, res) => {
       {
         _id: userId,
         isActive: false,
-        role: { $in: ['coordinator', 'admin'] }
+        role: { $in: ['coordinator', 'admin', 'staff'] } // Added 'staff'
       },
       {
         $set: { isActive: true }

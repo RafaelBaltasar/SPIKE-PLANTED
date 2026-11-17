@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import {
   Users,
@@ -288,6 +287,10 @@ export default function AdminDashboard() {
                     <span className="font-semibold text-primary capitalize">
                       {acc.role}
                     </span>
+                    
+                    {/* Show company or department if they exist */}
+                    {acc.company && ` at ${acc.company}`}
+                    {acc.department && ` in ${acc.department}`}
                   </p>
                 </div>
 

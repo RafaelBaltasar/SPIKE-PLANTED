@@ -1,6 +1,6 @@
-
 const User = require('../models/User');
 const Student = require('../models/Student');
+const Company = require('../models/Company'); // <-- Added Company model
 const jwt = require('jsonwebtoken');
 
 const generateToken = (id) => {
@@ -22,7 +22,8 @@ exports.register = async (req, res) => {
       lastName,
       program,
       yearLevel,
-      department
+      department,
+      company
     } = req.body;
 
     // Check if user already exists
@@ -35,12 +36,12 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Determine approval status
-    const isPending = role === 'coordinator' || role === 'admin';
+    // Determine approval status (Staff, Coordinator, and Admin need approval)
+    const isPending = role === 'coordinator' || role === 'admin' || role === 'staff';
 
     let studentId = null;
 
-    // Create Student profile
+    // Create Student profile if role is student
     if (role === 'student') {
       const newStudent = await Student.create({
         studentNumber,
@@ -55,6 +56,19 @@ exports.register = async (req, res) => {
       studentId = newStudent._id;
     }
 
+    // If registering as a Company Supervisor, create a Pending Company Request
+    if (role === 'staff') {
+      const existingCompany = await Company.findOne({ email });
+      if (!existingCompany) {
+        await Company.create({
+          name: company,
+          contactPerson: fullName,
+          email: email,
+          status: 'Pending'
+        });
+      }
+    }
+
     // Create User account
     user = await User.create({
       fullName,
@@ -63,19 +77,20 @@ exports.register = async (req, res) => {
       role,
       student: studentId,
       department: department || null,
+      company: company || null, 
       isActive: !isPending
     });
 
-    // Pending coordinator/admin accounts
+    // Pending staff/coordinator/admin accounts
     if (isPending) {
       return res.status(201).json({
         success: true,
         requiresApproval: true,
-        message: 'Account created! Please wait for the current Admin to approve your account before logging in.'
+        message: 'Account created! Please wait for the Admin to approve your account before logging in.'
       });
     }
 
-    // Generate token
+    // Generate token for Students
     const token = generateToken(user._id);
 
     return res.status(201).json({
@@ -86,13 +101,13 @@ exports.register = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        student: user.student
+        student: user.student,
+        company: user.company
       }
     });
 
   } catch (error) {
     console.error('Register error:', error);
-
     return res.status(500).json({
       success: false,
       message: 'Failed to register account.'
@@ -123,7 +138,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check account activation
+    // Check account activation (Pending Admin Approval)
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -161,13 +176,13 @@ exports.login = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        student: user.student
+        student: user.student,
+        company: user.company
       }
     });
 
   } catch (error) {
     console.error('Login error:', error);
-
     return res.status(500).json({
       success: false,
       message: 'Failed to login.'
