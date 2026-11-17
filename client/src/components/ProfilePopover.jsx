@@ -38,7 +38,7 @@ export default function ProfilePopover({ onClose }) {
   if (!data) return null;
 
   // Safely extract data with fallbacks
-  const userInfo = data.user;
+  const userInfo = data.user || {};
   const studentInfo = data.student || {};
   const companyInfo = data.company || {};
   const documents = data.documents || [];
@@ -71,9 +71,21 @@ export default function ProfilePopover({ onClose }) {
         
         {/* TOP BANNER */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-border flex items-center gap-6">
-          <div className="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center text-primary text-3xl font-bold border-4 border-white shadow-sm">
-            {userInfo.fullName.charAt(0)}
+          
+          {/* PROFILE PICTURE */}
+          <div className="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center text-primary text-3xl font-bold border-4 border-white shadow-sm overflow-hidden shrink-0">
+            {userInfo.avatar ? (
+              <img 
+                src={`http://localhost:5000${userInfo.avatar}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = userInfo.fullName?.charAt(0) || 'U'; }}
+              />
+            ) : (
+              userInfo.fullName?.charAt(0) || 'U'
+            )}
           </div>
+
           <div className="flex-1">
             <h1 className="text-2xl font-extrabold text-text">{userInfo.fullName}</h1>
             <span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full mt-1 capitalize">
@@ -128,7 +140,7 @@ export default function ProfilePopover({ onClose }) {
               <Building size={18} className="text-blue-600" /> OJT Placement
             </h3>
             <div className="space-y-3 text-sm">
-              <InfoRow icon={Building} label="Company Name" value={companyInfo.name || 'Not Assigned'} />
+              <InfoRow icon={Building} label="Company Name" value={companyInfo.name || userInfo.company || 'Not Assigned'} />
               <InfoRow icon={Briefcase} label="Company Supervisor" value={companyInfo.contactPerson || 'Not Assigned'} />
               <InfoRow icon={User} label="OJT Coordinator" value="TBA" />
               <InfoRow icon={Calendar} label="Start Date" value={companyInfo.createdAt ? new Date(companyInfo.createdAt).toLocaleDateString() : 'TBA'} />

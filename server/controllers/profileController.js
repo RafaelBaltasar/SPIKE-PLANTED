@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Student = require('../models/Student');
 const Document = require('../models/Document');
 const Company = require('../models/Company');
+const path = require('path');
+const fs = require('fs');
 
 // GET MY PROFILE
 exports.getMyProfile = async (req, res) => {
@@ -29,6 +31,9 @@ exports.getMyProfile = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        avatar: user.avatar, // <-- Added avatar
+        company: user.company,
+        department: user.department
       },
       student: user.student,
       company: companyData,
@@ -64,9 +69,53 @@ exports.updateMyProfile = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true, message: 'Profile updated successfully!', user });
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Profile updated successfully!', 
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar
+      } 
+    });
   } catch (error) {
     console.error('Update profile error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to update profile.' });
+  }
+};
+
+// UPLOAD PROFILE PICTURE (AVATAR)
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    // Optional: Delete old avatar file if it exists to save space
+    if (user.avatar) {
+      // Construct the full path of the old image
+      const oldPath = path.join(__dirname, '..', user.avatar);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    // Save the new path to the database (Multer saves it to uploads/documents by default, we'll use that)
+    user.avatar = `/uploads/documents/${req.file.filename}`;
+    await user.save();
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Profile picture updated!', 
+      avatar: user.avatar 
+    });
+  } catch (error) {
+    console.error('Upload avatar error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to upload picture.' });
   }
 };

@@ -1,17 +1,24 @@
-import { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Save, Upload, User } from 'lucide-react';
 import { api } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function EditProfileModal({ initialData, onClose, onSuccess }) {
   const { login } = useAuth();
+  
   const [form, setForm] = useState({
     fullName: initialData?.fullName || '',
     email: initialData?.email || '',
     contactNumber: initialData?.contactNumber || ''
   });
+  
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(initialData?.avatar || '');
+  
+  const fileRef = useRef(null);
 
+  // Handle text fields submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -33,15 +40,88 @@ export default function EditProfileModal({ initialData, onClose, onSuccess }) {
     }
   };
 
+  // Handle profile picture upload
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Show preview instantly
+    const reader = new FileReader();
+    reader.onloadend = () => setAvatarPreview(reader.result);
+    reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    setUploading(true);
+    try {
+      const { data } = await api.post('/profile/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      // Update global user state so the top bar picture changes immediately
+      const token = localStorage.getItem('spikeToken');
+      login(token, { ...initialData, avatar: data.avatar }); 
+      
+      onSuccess(); 
+    } catch (err) {
+      alert('Failed to upload image.');
+      setAvatarPreview(initialData?.avatar || ''); // Revert preview on failure
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+        
         <div className="flex justify-between items-center p-6 border-b border-border">
           <h2 className="text-xl font-extrabold text-text">Edit Profile</h2>
           <button onClick={onClose} className="text-muted hover:text-text"><X size={20}/></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          
+          {/* PROFILE PICTURE UPLOAD */}
+          <div className="flex flex-col items-center mb-4">
+            <div className="relative w-24 h-24 rounded-full bg-primary-light flex items-center justify-center text-primary text-3xl font-bold overflow-hidden border-4 border-white shadow-sm mb-2">
+              {avatarPreview ? (
+                <img 
+                  src={avatarPreview.startsWith('data:') || avatarPreview.startsWith('http') ? avatarPreview : `http://localhost:5000${avatarPreview}`} 
+                  alt="avatar" 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <User size={40} className="text-primary/50" />
+              )}
+              
+              {/* Upload overlay */}
+              {uploading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
+            
+            <input 
+              type="file" 
+              ref={fileRef} 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleAvatarUpload} 
+            />
+            
+            <button 
+              type="button" 
+              onClick={() => fileRef.current.click()}
+              disabled={uploading}
+              className="text-xs font-bold text-primary flex items-center gap-1 hover:underline"
+            >
+              <Upload size={12} /> {uploading ? 'Uploading...' : 'Change Photo'}
+            </button>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-muted mb-1">Full Name</label>
             <input 
@@ -74,8 +154,8 @@ export default function EditProfileModal({ initialData, onClose, onSuccess }) {
 
           <button 
             type="submit" 
-            disabled={loading}
-            className="w-full h-11 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark transition flex items-center justify-center gap-2 mt-2"
+            disabled={loading || uploading}
+            className="w-full h-11 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
           >
             <Save size={16} /> {loading ? 'Saving...' : 'Save Changes'}
           </button>

@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import ProfilePopover from '../components/ProfilePopover'; // <-- Added Import
+import ProfilePopover from '../components/ProfilePopover';
 
 const navItems = {
   student: [
@@ -40,7 +40,7 @@ export default function AppLayout() {
   const { notifications, unreadCount, isOpen, setIsOpen, markAllAsRead, clearNotifications } = useNotifications();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showProfile, setShowProfile] = useState(false); // <-- Added Profile State
+  const [showProfile, setShowProfile] = useState(false);
 
   const items = navItems[user?.role] || navItems.student;
 
@@ -49,7 +49,6 @@ export default function AppLayout() {
     navigate('/login');
   };
 
-  // Close both dropdowns when clicking anywhere on the main content
   const handleMainClick = () => {
     setIsOpen(false);
     setShowProfile(false);
@@ -111,8 +110,18 @@ export default function AppLayout() {
             <LogOut size={20} />
           </button>
           
-          <div className="mt-3 w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-sm font-bold text-primary">
-            {user?.fullName?.charAt(0) || 'U'}
+          {/* SIDEBAR AVATAR */}
+          <div className="mt-3 w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-sm font-bold text-primary overflow-hidden">
+            {user?.avatar ? (
+              <img 
+                src={`http://localhost:5000${user.avatar}`} 
+                alt="Avatar" 
+                className="w-full h-full object-cover" 
+                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U'; }}
+              />
+            ) : (
+              user?.fullName?.charAt(0) || 'U'
+            )}
           </div>
         </div>
       </aside>
@@ -189,8 +198,18 @@ export default function AppLayout() {
                 onClick={() => { setShowProfile(!showProfile); setIsOpen(false); }}
                 className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft hover:bg-gray-50 transition cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
-                  {user?.fullName?.charAt(0) || 'U'}
+                {/* TOP BAR AVATAR */}
+                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white overflow-hidden">
+                  {user?.avatar ? (
+                    <img 
+                      src={`http://localhost:5000${user.avatar}`} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U'; }}
+                    />
+                  ) : (
+                    user?.fullName?.charAt(0) || 'U'
+                  )}
                 </div>
                 <div className="text-xs text-left">
                   <p className="font-semibold leading-tight">{user?.fullName}</p>
@@ -201,7 +220,6 @@ export default function AppLayout() {
               {/* PROFILE DROPDOWN */}
               {showProfile && (
                 <>
-                  {/* Invisible backdrop to close on click outside */}
                   <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)}></div>
                   
                   <div className="absolute top-14 right-0 z-50">

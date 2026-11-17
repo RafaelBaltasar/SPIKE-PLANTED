@@ -48,6 +48,12 @@ const userSchema = new mongoose.Schema(
       default: null
     },
 
+    // New field for the profile picture URL
+    avatar: {
+      type: String,
+      default: ""
+    },
+
     isActive: {
       type: Boolean,
       default: true
