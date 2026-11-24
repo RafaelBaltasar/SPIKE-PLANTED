@@ -1,8 +1,9 @@
+
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Clock, BookOpen, FileText,
   Users, BarChart3, Settings, LogOut, HelpCircle, Bell, Search, Menu,
-  Building, CheckCircle, X
+  Building, CheckCircle, X, ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -12,32 +13,41 @@ import ProfilePopover from '../components/ProfilePopover';
 
 const navItems = {
   student: [
-    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/attendance', icon: Clock,            label: 'Attendance' },
-    { to: '/journals',   icon: BookOpen,         label: 'Weekly Journals' },
-    { to: '/documents',  icon: FileText,         label: 'Documents' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/attendance', icon: Clock, label: 'Attendance' },
+    { to: '/journals', icon: BookOpen, label: 'Weekly Journals' },
+    { to: '/documents', icon: FileText, label: 'Documents' },
   ],
   staff: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/interns',   icon: Users,           label: 'My Interns' },
+    { to: '/interns', icon: Users, label: 'My Interns' },
+    { to: '/supervisor-reviews', icon: ClipboardCheck, label: 'Supervisor Reviews' },
   ],
   coordinator: [
-    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/students',   icon: Users,           label: 'Student List' },
-    { to: '/review',     icon: CheckCircle,     label: 'Approvals' },
-    { to: '/documents',  icon: FileText,        label: 'Documents' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/students', icon: Users, label: 'Student List' },
+    { to: '/review', icon: CheckCircle, label: 'Approvals' },
+    { to: '/documents', icon: FileText, label: 'Documents' },
   ],
   admin: [
-    { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/students',   icon: Users,           label: 'All Students' },
-    { to: '/companies',  icon: Building,        label: 'Companies' },
-    { to: '/reports',    icon: BarChart3,       label: 'System Reports' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/students', icon: Users, label: 'All Students' },
+    { to: '/companies', icon: Building, label: 'Companies' },
+    { to: '/reports', icon: BarChart3, label: 'System Reports' },
   ],
 };
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { notifications, unreadCount, isOpen, setIsOpen, markAllAsRead, clearNotifications } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    isOpen,
+    setIsOpen,
+    markAllAsRead,
+    clearNotifications
+  } = useNotifications();
+
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -56,7 +66,8 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen bg-background font-sans">
-      {/* ─── Sidebar ─── */}
+
+      {/* SIDEBAR */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-30
         w-[88px] bg-white flex flex-col items-center py-6
@@ -73,6 +84,7 @@ export default function AppLayout() {
               key={item.to}
               to={item.to}
               title={item.label}
+              onClick={() => setMobileOpen(false)}
               className={({ isActive }) => `
                 w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer
                 transition-all duration-200
@@ -94,6 +106,7 @@ export default function AppLayout() {
           >
             <HelpCircle size={20} />
           </button>
+
           <button
             onClick={() => alert('Settings coming soon!')}
             title="Settings"
@@ -101,7 +114,7 @@ export default function AppLayout() {
           >
             <Settings size={20} />
           </button>
-          
+
           <button
             onClick={handleLogout}
             title="Logout"
@@ -109,15 +122,18 @@ export default function AppLayout() {
           >
             <LogOut size={20} />
           </button>
-          
+
           {/* SIDEBAR AVATAR */}
           <div className="mt-3 w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-sm font-bold text-primary overflow-hidden">
             {user?.avatar ? (
-              <img 
-                src={`http://localhost:5000${user.avatar}`} 
-                alt="Avatar" 
-                className="w-full h-full object-cover" 
-                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U'; }}
+              <img
+                src={`http://localhost:5000${user.avatar}`}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U';
+                }}
               />
             ) : (
               user?.fullName?.charAt(0) || 'U'
@@ -126,9 +142,10 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* ─── Main ─── */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 ml-[88px] lg:ml-0">
         <header className="flex items-center justify-between gap-4 px-6 lg:px-10 py-6">
+
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="lg:hidden w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-soft cursor-pointer"
@@ -146,14 +163,18 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-3 relative">
-            
+
             {/* NOTIFICATION BELL */}
             <div className="relative">
-              <button 
-                onClick={() => { setIsOpen(!isOpen); setShowProfile(false); }}
+              <button
+                onClick={() => {
+                  setIsOpen(!isOpen);
+                  setShowProfile(false);
+                }}
                 className="relative w-11 h-11 rounded-2xl bg-white shadow-soft flex items-center justify-center cursor-pointer hover:bg-gray-50 transition"
               >
                 <Bell size={18} className="text-text" />
+
                 {unreadCount > 0 && (
                   <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white ring-2 ring-white">
                     {unreadCount}
@@ -165,18 +186,34 @@ export default function AppLayout() {
               {isOpen && (
                 <div className="absolute top-14 right-0 w-80 bg-white rounded-3xl shadow-card border border-border overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between p-4 border-b border-border">
-                    <h3 className="font-extrabold text-sm text-text">Notifications</h3>
-                    <button onClick={() => setIsOpen(false)} className="text-muted hover:text-text"><X size={16}/></button>
+                    <h3 className="font-extrabold text-sm text-text">
+                      Notifications
+                    </h3>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="text-muted hover:text-text"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
-                  
+
                   <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-sm text-muted">No new notifications.</div>
+                      <div className="p-8 text-center text-sm text-muted">
+                        No new notifications.
+                      </div>
                     ) : (
-                      notifications.map(n => (
-                        <div key={n.id} className={`p-4 border-b border-border/50 text-sm ${n.read ? 'bg-white' : 'bg-primary-light/30'}`}>
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-4 border-b border-border/50 text-sm ${
+                            n.read ? 'bg-white' : 'bg-primary-light/30'
+                          }`}
+                        >
                           <p className="text-text">{n.text}</p>
-                          <p className="text-[10px] text-muted mt-1">{formatDistanceToNow(new Date(n.time))} ago</p>
+                          <p className="text-[10px] text-muted mt-1">
+                            {formatDistanceToNow(new Date(n.time))} ago
+                          </p>
                         </div>
                       ))
                     )}
@@ -184,8 +221,18 @@ export default function AppLayout() {
 
                   {notifications.length > 0 && (
                     <div className="p-3 bg-background flex justify-between border-t border-border">
-                      <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:underline">Mark all as read</button>
-                      <button onClick={clearNotifications} className="text-xs font-bold text-danger hover:underline">Clear all</button>
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs font-bold text-primary hover:underline"
+                      >
+                        Mark all as read
+                      </button>
+                      <button
+                        onClick={clearNotifications}
+                        className="text-xs font-bold text-danger hover:underline"
+                      >
+                        Clear all
+                      </button>
                     </div>
                   )}
                 </div>
@@ -194,45 +241,60 @@ export default function AppLayout() {
 
             {/* CLICKABLE PROFILE */}
             <div className="relative">
-              <button 
-                onClick={() => { setShowProfile(!showProfile); setIsOpen(false); }}
+              <button
+                onClick={() => {
+                  setShowProfile(!showProfile);
+                  setIsOpen(false);
+                }}
                 className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft hover:bg-gray-50 transition cursor-pointer"
               >
-                {/* TOP BAR AVATAR */}
                 <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white overflow-hidden">
                   {user?.avatar ? (
-                    <img 
-                      src={`http://localhost:5000${user.avatar}`} 
-                      alt="Avatar" 
+                    <img
+                      src={`http://localhost:5000${user.avatar}`}
+                      alt="Avatar"
                       className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U'; }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerText = user?.fullName?.charAt(0) || 'U';
+                      }}
                     />
                   ) : (
                     user?.fullName?.charAt(0) || 'U'
                   )}
                 </div>
+
                 <div className="text-xs text-left">
-                  <p className="font-semibold leading-tight">{user?.fullName}</p>
-                  <p className="text-muted capitalize leading-tight">{user?.role}</p>
+                  <p className="font-semibold leading-tight">
+                    {user?.fullName}
+                  </p>
+                  <p className="text-muted capitalize leading-tight">
+                    {user?.role}
+                  </p>
                 </div>
               </button>
 
               {/* PROFILE DROPDOWN */}
               {showProfile && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)}></div>
-                  
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowProfile(false)}
+                  />
+
                   <div className="absolute top-14 right-0 z-50">
                     <ProfilePopover onClose={() => setShowProfile(false)} />
                   </div>
                 </>
               )}
             </div>
-
           </div>
         </header>
 
-        <div className="flex-1 px-6 lg:px-10 pb-10" onClick={handleMainClick}>
+        <div
+          className="flex-1 px-6 lg:px-10 pb-10"
+          onClick={handleMainClick}
+        >
           <Outlet />
         </div>
       </main>

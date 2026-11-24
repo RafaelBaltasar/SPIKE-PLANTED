@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -25,7 +26,6 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      // Added 'staff' to the allowed roles
       enum: ['student', 'coordinator', 'admin', 'staff'],
       required: true
     },
@@ -36,22 +36,27 @@ const userSchema = new mongoose.Schema(
       default: null
     },
 
-    // New field to store the supervisor's company
+    // Existing company name field retained for compatibility.
     company: {
       type: String,
       default: null
     },
 
-    // New field to store the faculty/admin department
+    // Links a company supervisor to an actual Company record.
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      default: null
+    },
+
     department: {
       type: String,
       default: null
     },
 
-    // New field for the profile picture URL
     avatar: {
       type: String,
-      default: ""
+      default: ''
     },
 
     isActive: {
@@ -64,14 +69,14 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Hash password before saving
+// Hash password before saving.
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
 
   this.password = await bcrypt.hash(this.password, 12);
 });
 
-// Compare entered password with hashed password
+// Compare entered password with hashed password.
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };

@@ -6,7 +6,9 @@ const {
   getMyJournals,
   createJournal,
   updateJournal,
-  submitJournal
+  submitJournal,
+  getCompanyPendingJournals,
+  reviewJournalBySupervisor
 } = require('../controllers/weeklyJournalController');
 
 const {
@@ -19,9 +21,10 @@ const {
   authorize
 } = require('../middleware/authMiddleware');
 
-// ─────────────────────────────────────────────
+
+// =============================================
 // STUDENT ROUTES
-// ─────────────────────────────────────────────
+// =============================================
 
 // Student: View own weekly journals
 router.get(
@@ -55,9 +58,31 @@ router.patch(
   submitJournal
 );
 
-// ─────────────────────────────────────────────
+
+// =============================================
+// SUPERVISOR ROUTES
+// =============================================
+
+// Get submitted journals awaiting supervisor sign-off
+router.get(
+  '/company-pending',
+  protect,
+  authorize('staff'),
+  getCompanyPendingJournals
+);
+
+// Supervisor: Approve or reject a journal
+router.patch(
+  '/:id/supervisor-review',
+  protect,
+  authorize('staff'),
+  reviewJournalBySupervisor
+);
+
+
+// =============================================
 // COORDINATOR / ADMIN ROUTES
-// ─────────────────────────────────────────────
+// =============================================
 
 // Get all submitted journals
 router.get(
@@ -67,7 +92,7 @@ router.get(
   getAllJournals
 );
 
-// Review a submitted journal
+// Coordinator: Review a journal
 router.patch(
   '/:id/review',
   protect,

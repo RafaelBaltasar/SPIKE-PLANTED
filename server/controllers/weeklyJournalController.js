@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const WeeklyJournal = require('../models/WeeklyJournal');
 const Student = require('../models/Student');
 
-// Validate journal dates
+// =============================================
+// VALIDATE JOURNAL DATES
+// =============================================
 const validateDates = (startDate, endDate) => {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -18,7 +20,10 @@ const validateDates = (startDate, endDate) => {
   return end >= start;
 };
 
+
+// =============================================
 // STUDENT: GET OWN WEEKLY JOURNALS
+// =============================================
 exports.getMyJournals = async (req, res) => {
   try {
     if (!req.user.student) {
@@ -48,7 +53,10 @@ exports.getMyJournals = async (req, res) => {
   }
 };
 
+
+// =============================================
 // STUDENT: CREATE WEEKLY JOURNAL
+// =============================================
 exports.createJournal = async (req, res) => {
   try {
     if (!req.user.student) {
@@ -67,7 +75,6 @@ exports.createJournal = async (req, res) => {
       challenges
     } = req.body || {};
 
-    // Validate week number
     if (
       !Number.isInteger(weekNumber) ||
       weekNumber < 1 ||
@@ -79,7 +86,6 @@ exports.createJournal = async (req, res) => {
       });
     }
 
-    // Validate required text fields
     if (
       typeof activities !== 'string' ||
       !activities.trim() ||
@@ -102,7 +108,6 @@ exports.createJournal = async (req, res) => {
       });
     }
 
-    // Validate optional challenges
     if (
       challenges !== undefined &&
       typeof challenges !== 'string'
@@ -120,7 +125,6 @@ exports.createJournal = async (req, res) => {
       });
     }
 
-    // Validate reporting dates
     if (
       !startDate ||
       !endDate ||
@@ -132,7 +136,6 @@ exports.createJournal = async (req, res) => {
       });
     }
 
-    // Confirm student profile exists
     const studentExists = await Student.exists({
       _id: req.user.student
     });
@@ -144,7 +147,6 @@ exports.createJournal = async (req, res) => {
       });
     }
 
-    // Prevent duplicate journal for the same week
     const existingJournal = await WeeklyJournal.findOne({
       student: req.user.student,
       weekNumber
@@ -165,7 +167,8 @@ exports.createJournal = async (req, res) => {
       activities: activities.trim(),
       learnings: learnings.trim(),
       challenges: (challenges || '').trim(),
-      status: 'Draft'
+      status: 'Draft',
+      supervisorStatus: 'Pending'
     });
 
     return res.status(201).json({
@@ -191,7 +194,10 @@ exports.createJournal = async (req, res) => {
   }
 };
 
+
+// =============================================
 // STUDENT: UPDATE OWN DRAFT JOURNAL
+// =============================================
 exports.updateJournal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -238,7 +244,6 @@ exports.updateJournal = async (req, res) => {
       challenges
     } = req.body || {};
 
-    // Validate updated week number
     if (
       weekNumber !== undefined &&
       (
@@ -253,7 +258,6 @@ exports.updateJournal = async (req, res) => {
       });
     }
 
-    // Validate updated text fields
     if (
       activities !== undefined &&
       (
@@ -295,7 +299,6 @@ exports.updateJournal = async (req, res) => {
       });
     }
 
-    // Use existing dates when they are not being updated
     const newStartDate = startDate !== undefined
       ? startDate
       : journal.startDate;
@@ -311,7 +314,6 @@ exports.updateJournal = async (req, res) => {
       });
     }
 
-    // Check duplicate week if week number changes
     if (
       weekNumber !== undefined &&
       weekNumber !== journal.weekNumber
@@ -377,7 +379,10 @@ exports.updateJournal = async (req, res) => {
   }
 };
 
-// STUDENT: SUBMIT JOURNAL FOR REVIEW
+
+// =============================================
+// STUDENT: SUBMIT OR RESUBMIT JOURNAL
+// =============================================
 exports.submitJournal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -396,7 +401,6 @@ exports.submitJournal = async (req, res) => {
       });
     }
 
-    // Only the owner can submit their draft
     const journal = await WeeklyJournal.findOneAndUpdate(
       {
         _id: id,
@@ -405,7 +409,11 @@ exports.submitJournal = async (req, res) => {
       },
       {
         $set: {
-          status: 'Submitted'
+          status: 'Submitted',
+          supervisorStatus: 'Pending',
+          supervisorReviewedBy: null,
+          supervisorReviewedAt: null,
+          supervisorRemarks: ''
         }
       },
       {
@@ -433,6 +441,184 @@ exports.submitJournal = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to submit weekly journal.'
+    });
+  }
+};
+
+
+// =============================================
+// SUPERVISOR: GET PENDING COMPANY JOURNALS
+// =============================================
+exports.getCompanyPendingJournals = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+
+    if (
+      !companyId ||
+      !mongoose.Types.ObjectId.isValid(companyId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your supervisor account is not linked to a valid company.'
+      });
+    }
+
+    const students = await Student.find({
+      companyId
+    }).select('_id');
+
+    const studentIds = students.map(student => student._id);
+
+    const journals = await WeeklyJournal.find({
+      student: { $in: studentIds },
+      status: 'Submitted',
+      supervisorStatus: { $in: ['Pending', null] }
+    })
+      .populate(
+        'student',
+        'studentNumber firstName lastName email program yearLevel section'
+      )
+      .sort({ weekNumber: 1, createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: journals.length,
+      journals
+    });
+
+  } catch (error) {
+    console.error('Get company journals error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve pending weekly journals.'
+    });
+  }
+};
+
+
+// =============================================
+// SUPERVISOR: REVIEW COMPANY JOURNAL
+// =============================================
+exports.reviewJournalBySupervisor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, remarks } = req.body || {};
+    const companyId = req.user.companyId;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid journal ID.'
+      });
+    }
+
+    if (
+      !companyId ||
+      !mongoose.Types.ObjectId.isValid(companyId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your supervisor account is not linked to a valid company.'
+      });
+    }
+
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Review status must be Approved or Rejected.'
+      });
+    }
+
+    if (
+      remarks !== undefined &&
+      (
+        typeof remarks !== 'string' ||
+        remarks.trim().length > 2000
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Remarks must be valid text and not exceed 2000 characters.'
+      });
+    }
+
+    if (status === 'Rejected' && !(remarks || '').trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide remarks when rejecting a journal.'
+      });
+    }
+
+    // Find the submitted journal.
+    const journal = await WeeklyJournal.findById(id);
+
+    if (!journal || journal.status !== 'Submitted') {
+      return res.status(404).json({
+        success: false,
+        message: 'Submitted weekly journal not found.'
+      });
+    }
+
+    // Confirm that the journal belongs to this company's intern.
+    const assignedStudent = await Student.findOne({
+      _id: journal.student,
+      companyId
+    });
+
+    if (!assignedStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to review this journal.'
+      });
+    }
+
+    // Atomic review update prevents duplicate supervisor reviews.
+    const updatedJournal = await WeeklyJournal.findOneAndUpdate(
+      {
+        _id: id,
+        status: 'Submitted',
+        supervisorStatus: { $in: ['Pending', null] }
+      },
+      {
+        $set: {
+          status: status === 'Rejected' ? 'Draft' : 'Submitted',
+          supervisorStatus: status,
+          supervisorReviewedBy: req.user._id,
+          supervisorReviewedAt: new Date(),
+          supervisorRemarks: (remarks || '').trim()
+        }
+      },
+      {
+        new: true,
+        runValidators: true
+      }
+    ).populate(
+      'student',
+      'studentNumber firstName lastName email program yearLevel section'
+    );
+
+    if (!updatedJournal) {
+      return res.status(409).json({
+        success: false,
+        message: 'This journal has already been reviewed by a supervisor.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: status === 'Approved'
+        ? 'Weekly journal approved by supervisor and forwarded to the coordinator.'
+        : 'Weekly journal rejected. The student can now edit and resubmit it.',
+      journal: updatedJournal
+    });
+
+  } catch (error) {
+    console.error('Supervisor journal review error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to review weekly journal.'
     });
   }
 };

@@ -1,6 +1,7 @@
+
 const User = require('../models/User');
 const Student = require('../models/Student');
-const Company = require('../models/Company'); // <-- Added Company model
+const Company = require('../models/Company');
 const jwt = require('jsonwebtoken');
 
 const generateToken = (id) => {
@@ -26,28 +27,72 @@ exports.register = async (req, res) => {
       company
     } = req.body;
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    if (user) {
+    if (!normalizedEmail || !password || !role || !fullName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required account information.'
+      });
+    }
+
+    if (!['student', 'coordinator', 'admin', 'staff'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account role.'
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail
+    });
+
+    if (existingUser) {
       return res.status(400).json({
         success: false,
         message: 'Email already registered.'
       });
     }
 
-    // Determine approval status (Staff, Coordinator, and Admin need approval)
-    const isPending = role === 'coordinator' || role === 'admin' || role === 'staff';
+    const isPending = ['coordinator', 'admin', 'staff'].includes(role);
 
     let studentId = null;
+    let companyRecord = null;
 
-    // Create Student profile if role is student
+    // Create student profile.
     if (role === 'student') {
+      if (
+        !studentNumber ||
+        !firstName ||
+        !lastName ||
+        !program ||
+        !yearLevel
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide all required student information.'
+        });
+      }
+
+      const existingStudent = await Student.findOne({
+        $or: [
+          { email: normalizedEmail },
+          { studentNumber: studentNumber.trim() }
+        ]
+      });
+
+      if (existingStudent) {
+        return res.status(400).json({
+          success: false,
+          message: 'Student email or student number already exists.'
+        });
+      }
+
       const newStudent = await Student.create({
-        studentNumber,
+        studentNumber: studentNumber.trim(),
         firstName,
         lastName,
-        email,
+        email: normalizedEmail,
         program,
         yearLevel,
         status: 'Active'
@@ -56,41 +101,59 @@ exports.register = async (req, res) => {
       studentId = newStudent._id;
     }
 
-    // If registering as a Company Supervisor, create a Pending Company Request
+    // Create or reuse the company record for a supervisor.
     if (role === 'staff') {
-      const existingCompany = await Company.findOne({ email });
-      if (!existingCompany) {
-        await Company.create({
-          name: company,
+      if (!company?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide your company name.'
+        });
+      }
+
+      companyRecord = await Company.findOne({
+        email: normalizedEmail
+      });
+
+      if (companyRecord?.status === 'Rejected') {
+        companyRecord.name = company.trim();
+        companyRecord.contactPerson = fullName;
+        companyRecord.status = 'Pending';
+        await companyRecord.save();
+      } else if (!companyRecord) {
+        companyRecord = await Company.create({
+          name: company.trim(),
           contactPerson: fullName,
-          email: email,
+          email: normalizedEmail,
           status: 'Pending'
         });
       }
     }
 
-    // Create User account
-    user = await User.create({
+    // Create user account.
+    const user = await User.create({
       fullName,
-      email,
+      email: normalizedEmail,
       password,
       role,
       student: studentId,
+      company: company?.trim() || null,
+      companyId: companyRecord?._id || null,
       department: department || null,
-      company: company || null, 
       isActive: !isPending
     });
 
-    // Pending staff/coordinator/admin accounts
+    // Staff, coordinator, and admin accounts require approval.
     if (isPending) {
       return res.status(201).json({
         success: true,
         requiresApproval: true,
-        message: 'Account created! Please wait for the Admin to approve your account before logging in.'
+        message:
+          role === 'staff'
+            ? 'Company registration submitted! Please wait for Admin approval.'
+            : 'Account created! Please wait for the Admin to approve your account before logging in.'
       });
     }
 
-    // Generate token for Students
     const token = generateToken(user._id);
 
     return res.status(201).json({
@@ -102,12 +165,20 @@ exports.register = async (req, res) => {
         email: user.email,
         role: user.role,
         student: user.student,
-        company: user.company
+        company: user.company,
+        companyId: user.companyId
       }
     });
-
   } catch (error) {
     console.error('Register error:', error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email, student number, or company is already registered.'
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to register account.'
@@ -119,8 +190,11 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: normalizedEmail
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -138,7 +212,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check account activation (Pending Admin Approval)
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -146,7 +219,33 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check Student profile status
+    // Verify and synchronize company information for supervisors.
+    if (user.role === 'staff') {
+      const companyRecord = await Company.findOne({
+        email: user.email,
+        status: 'Approved'
+      });
+
+      if (!companyRecord) {
+        return res.status(403).json({
+          success: false,
+          message: 'Your company has not been approved. Please contact the Admin.'
+        });
+      }
+
+      // Supports supervisor accounts created before companyId was added.
+      if (
+        !user.companyId ||
+        user.companyId.toString() !== companyRecord._id.toString() ||
+        user.company !== companyRecord.name
+      ) {
+        user.companyId = companyRecord._id;
+        user.company = companyRecord.name;
+        await user.save();
+      }
+    }
+
+    // Verify student profile and status.
     if (user.role === 'student') {
       const student = await Student.findById(user.student);
 
@@ -165,7 +264,6 @@ exports.login = async (req, res) => {
       }
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     return res.status(200).json({
@@ -177,12 +275,15 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         student: user.student,
-        company: user.company
+        company: user.company,
+        companyId: user.companyId,
+        department: user.department,
+        avatar: user.avatar
       }
     });
-
   } catch (error) {
     console.error('Login error:', error);
+
     return res.status(500).json({
       success: false,
       message: 'Failed to login.'

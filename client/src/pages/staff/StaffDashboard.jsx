@@ -1,69 +1,248 @@
-import { useState } from 'react';
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  BookOpen,
+  Building2,
+  Users,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
+
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircle, XCircle, Users, BookOpen } from 'lucide-react';
+import { api } from '../../api/axios';
 
 export default function StaffDashboard() {
   const { user } = useAuth();
-  
-  const [interns, setInterns] = useState([
-    { id: 1, name: 'Juan Dela Cruz', hours: 120, status: 'Pending' },
-    { id: 2, name: 'Maria Santos', hours: 85, status: 'Approved' },
-  ]);
+
+  const [internCount, setInternCount] = useState(0);
+  const [pendingSignoffs, setPendingSignoffs] = useState(null);
+  const [company, setCompany] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [signoffError, setSignoffError] = useState('');
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSignoffError('');
+
+      // Fetch assigned interns.
+      const internsResponse = await api.get(
+        '/assignments/company-interns'
+      );
+
+      setInternCount(
+        internsResponse.data.count ??
+        internsResponse.data.students?.length ??
+        0
+      );
+
+      setCompany(internsResponse.data.company || null);
+
+      // Fetch attendance and weekly journal sign-offs.
+      const [attendanceResult, journalResult] = await Promise.allSettled([
+        api.get('/ojt/company-pending'),
+        api.get('/weekly-journals/company-pending')
+      ]);
+
+      if (
+        attendanceResult.status === 'fulfilled' &&
+        journalResult.status === 'fulfilled'
+      ) {
+        const attendanceCount =
+          attendanceResult.value.data.count ??
+          attendanceResult.value.data.attendance?.length ??
+          0;
+
+        const journalCount =
+          journalResult.value.data.count ??
+          journalResult.value.data.journals?.length ??
+          0;
+
+        setPendingSignoffs(attendanceCount + journalCount);
+      } else {
+        setPendingSignoffs(null);
+
+        setSignoffError(
+          'Unable to load pending sign-offs. Please try again.'
+        );
+
+        console.error('Failed to fetch supervisor sign-offs:', {
+          attendance: attendanceResult,
+          journals: journalResult
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch supervisor dashboard:', err);
+
+      setError(
+        err.response?.data?.message ||
+        'Unable to load dashboard information.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.role === 'staff') {
+      fetchDashboardData();
+    }
+  }, [user?.role, fetchDashboardData]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-text">Supervisor Dashboard</h1>
-        <p className="text-sm text-muted mt-1">Review and sign off on intern hours for <span className="font-bold text-primary">{user?.company || 'your company'}</span></p>
+
+      {/* Dashboard Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold text-text">
+            Supervisor Dashboard
+          </h1>
+
+          <p className="text-sm text-muted mt-1">
+            Welcome, {user?.fullName || 'Supervisor'}.
+          </p>
+        </div>
+
+        <button
+          onClick={fetchDashboardData}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+        >
+          <RefreshCw
+            size={16}
+            className={loading ? 'animate-spin' : ''}
+          />
+          Refresh
+        </button>
       </div>
 
+      {/* Company Information */}
+      <div className="bg-white p-6 rounded-3xl shadow-card flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-primary-light flex items-center justify-center text-primary">
+          <Building2 size={24} />
+        </div>
+
+        <div>
+          <p className="text-xs text-muted font-semibold">
+            Company
+          </p>
+
+          <p className="text-xl font-extrabold text-text">
+            {company?.name || user?.company || 'Company not specified'}
+          </p>
+        </div>
+      </div>
+
+      {/* Dashboard Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-red-500 shrink-0" />
+
+          <div>
+            <p className="text-sm font-bold text-red-700">
+              Dashboard data unavailable
+            </p>
+
+            <p className="text-sm text-red-600 mt-1">
+              {error}
+            </p>
+
+            <button
+              onClick={fetchDashboardData}
+              disabled={loading}
+              className="text-sm font-bold text-red-700 underline mt-2 disabled:opacity-50"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Assigned Interns */}
         <div className="bg-white p-6 rounded-3xl shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary-light flex items-center justify-center text-primary"><Users size={24} /></div>
-          <div><p className="text-xs text-muted font-semibold">Assigned Interns</p><p className="text-2xl font-extrabold text-text">{interns.length}</p></div>
+          <div className="w-12 h-12 rounded-2xl bg-primary-light flex items-center justify-center text-primary">
+            <Users size={24} />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted font-semibold">
+              Assigned Interns
+            </p>
+
+            <p className="text-2xl font-extrabold text-text">
+              {loading ? (
+                <RefreshCw
+                  size={20}
+                  className="animate-spin text-primary"
+                />
+              ) : error ? (
+                '--'
+              ) : (
+                internCount
+              )}
+            </p>
+
+            <p className="text-xs text-muted mt-1">
+              Students assigned to your company
+            </p>
+          </div>
         </div>
+
+        {/* Pending Sign-offs */}
         <div className="bg-white p-6 rounded-3xl shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-warning"><BookOpen size={24} /></div>
-          <div><p className="text-xs text-muted font-semibold">Pending Sign-offs</p><p className="text-2xl font-extrabold text-text">{interns.filter(i => i.status === 'Pending').length}</p></div>
+          <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-warning">
+            <BookOpen size={24} />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted font-semibold">
+              Pending Sign-offs
+            </p>
+
+            <p className="text-2xl font-extrabold text-text">
+              {loading ? (
+                <RefreshCw
+                  size={20}
+                  className="animate-spin text-primary"
+                />
+              ) : pendingSignoffs === null ? (
+                '--'
+              ) : (
+                pendingSignoffs
+              )}
+            </p>
+
+            <p className="text-xs text-muted mt-1">
+              Attendance and journals awaiting review
+            </p>
+          </div>
         </div>
+
       </div>
 
-      <div className="bg-white rounded-3xl shadow-card p-6">
-        <h3 className="font-extrabold mb-4 text-text">My Assigned Interns</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-background text-muted text-xs uppercase">
-              <tr>
-                <th className="px-6 py-4 rounded-l-xl">Intern Name</th>
-                <th className="px-6 py-4">Total Hours</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 rounded-r-xl text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {interns.map((intern) => (
-                <tr key={intern.id} className="hover:bg-background/50">
-                  <td className="px-6 py-4 font-semibold text-text">{intern.name}</td>
-                  <td className="px-6 py-4 text-muted">{intern.hours} hrs</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${intern.status === 'Approved' ? 'bg-green-100 text-success' : 'bg-amber-100 text-warning'}`}>
-                      {intern.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right flex justify-end gap-2">
-                    <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-success hover:bg-green-100 transition">
-                      <CheckCircle size={14} /> Sign Off
-                    </button>
-                    <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-danger hover:bg-red-100 transition">
-                      <XCircle size={14} /> Reject
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Sign-off Error */}
+      {signoffError && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-orange-500 shrink-0" />
+
+          <div>
+            <p className="text-sm font-bold text-orange-700">
+              Sign-off information unavailable
+            </p>
+
+            <p className="text-sm text-orange-600 mt-1">
+              {signoffError}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

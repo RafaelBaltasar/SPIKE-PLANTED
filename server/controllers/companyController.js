@@ -1,3 +1,4 @@
+
 const Company = require('../models/Company');
 const User = require('../models/User');
 
@@ -5,9 +6,18 @@ const User = require('../models/User');
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.find().sort({ createdAt: -1 });
-    return res.status(200).json({ success: true, companies });
+
+    return res.status(200).json({
+      success: true,
+      companies
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to fetch companies.' });
+    console.error('Get companies error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch companies.'
+    });
   }
 };
 
@@ -15,25 +25,51 @@ exports.getAllCompanies = async (req, res) => {
 exports.approveCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // 1. Update company status to Approved
-    const company = await Company.findByIdAndUpdate(
-      id, 
-      { status: 'Approved' }, 
-      { new: true }
-    );
 
-    if (!company) return res.status(404).json({ success: false, message: 'Company not found.' });
+    const company = await Company.findById(id);
 
-    // 2. Activate the Supervisor's User account automatically so they can log in
-    await User.findOneAndUpdate(
-      { email: company.email },
-      { isActive: true }
-    );
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found.'
+      });
+    }
 
-    return res.status(200).json({ success: true, message: 'Company approved and supervisor activated!' });
+    // Find the supervisor account registered with this company email.
+    const supervisor = await User.findOne({
+      email: company.email,
+      role: 'staff'
+    });
+
+    if (!supervisor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Supervisor account not found for this company.'
+      });
+    }
+
+    // Link the supervisor to the actual Company document.
+    supervisor.companyId = company._id;
+    supervisor.company = company.name;
+    supervisor.isActive = true;
+
+    await supervisor.save();
+
+    company.status = 'Approved';
+    await company.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Company approved and supervisor activated successfully.',
+      company
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to approve company.' });
+    console.error('Approve company error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to approve company.'
+    });
   }
 };
 
@@ -41,15 +77,42 @@ exports.approveCompany = async (req, res) => {
 exports.rejectCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const company = await Company.findByIdAndUpdate(
-      id, 
-      { status: 'Rejected' }, 
-      { new: true }
+
+    const company = await Company.findById(id);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found.'
+      });
+    }
+
+    company.status = 'Rejected';
+    await company.save();
+
+    // Prevent the supervisor from logging in.
+    await User.findOneAndUpdate(
+      {
+        email: company.email,
+        role: 'staff'
+      },
+      {
+        $set: {
+          isActive: false
+        }
+      }
     );
 
-    return res.status(200).json({ success: true, message: 'Company rejected.' });
+    return res.status(200).json({
+      success: true,
+      message: 'Company rejected and supervisor account deactivated.'
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to reject company.' });
+    console.error('Reject company error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reject company.'
+    });
   }
 };

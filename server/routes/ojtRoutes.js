@@ -5,13 +5,19 @@ const router = express.Router();
 const {
   getMyAttendance,
   timeIn,
-  timeOut
+  timeOut,
+  getCompanyPendingAttendance,
+  reviewAttendanceBySupervisor
 } = require('../controllers/ojtController');
 
 const {
   protect,
   authorize
 } = require('../middleware/authMiddleware');
+
+// =============================================
+// STUDENT ROUTES
+// =============================================
 
 // Student attendance history
 router.get(
@@ -35,6 +41,27 @@ router.post(
   protect,
   authorize('student'),
   timeOut
+);
+
+
+// =============================================
+// SUPERVISOR ROUTES
+// =============================================
+
+// Get completed attendance awaiting supervisor sign-off
+router.get(
+  '/company-pending',
+  protect,
+  authorize('staff'),
+  getCompanyPendingAttendance
+);
+
+// Approve or reject attendance as supervisor
+router.patch(
+  '/:id/supervisor-review',
+  protect,
+  authorize('staff'),
+  reviewAttendanceBySupervisor
 );
 
 module.exports = router;

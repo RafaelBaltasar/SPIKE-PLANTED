@@ -1,6 +1,7 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { NotificationProvider } from './context/NotificationContext'; // <-- Added NotificationProvider
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 
@@ -14,6 +15,8 @@ import Documents from './pages/student/Documents';
 
 // Staff (Company Supervisor) Pages
 import StaffDashboard from './pages/staff/StaffDashboard';
+import StaffInterns from './pages/staff/StaffInterns';
+import StaffReviews from './pages/staff/StaffReviews';
 
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
@@ -39,7 +42,6 @@ function DashboardRouter() {
 export default function App() {
   return (
     <AuthProvider>
-      {/* WRAP THE APP WITH NOTIFICATION PROVIDER */}
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
@@ -52,6 +54,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
+              {/* DASHBOARD */}
               <Route path="/dashboard" element={<DashboardRouter />} />
 
               {/* STUDENT */}
@@ -59,8 +62,9 @@ export default function App() {
               <Route path="/journals" element={<Journals />} />
               <Route path="/documents" element={<Documents />} />
 
-              {/* STAFF (COMPANY SUPERVISOR) */}
-              <Route path="/interns" element={<StaffDashboard />} />
+              {/* COMPANY SUPERVISOR */}
+              <Route path="/interns" element={<StaffInterns />} />
+              <Route path="/supervisor-reviews" element={<StaffReviews />} />
 
               {/* COORDINATOR & ADMIN */}
               <Route path="/students" element={<StudentList />} />
@@ -70,12 +74,15 @@ export default function App() {
               />
               <Route path="/review" element={<ReviewSubmissions />} />
 
-              {/* ADMIN ONLY */}
+              {/* ADMIN */}
               <Route path="/companies" element={<ManageCompanies />} />
               <Route path="/reports" element={<SystemReports />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route
+              path="*"
+              element={<Navigate to="/login" replace />}
+            />
           </Routes>
         </BrowserRouter>
       </NotificationProvider>

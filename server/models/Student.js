@@ -50,6 +50,13 @@ const studentSchema = new mongoose.Schema(
       default: ''
     },
 
+    // Company assigned to this student by the coordinator.
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Company',
+      default: null
+    },
+
     status: {
       type: String,
       enum: ['Pending', 'Active', 'Completed', 'Inactive'],
@@ -60,5 +67,7 @@ const studentSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+studentSchema.index({ companyId: 1 });
 
 module.exports = mongoose.model('Student', studentSchema);

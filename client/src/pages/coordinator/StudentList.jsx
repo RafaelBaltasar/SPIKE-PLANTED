@@ -7,7 +7,11 @@ import {
   RefreshCw,
   Eye,
   UserCheck,
-  UserX
+  UserX,
+  Building2,
+  UserPlus,
+  X,
+  Save
 } from 'lucide-react';
 
 import { api } from '../../api/axios';
@@ -16,11 +20,19 @@ export default function StudentList() {
   const navigate = useNavigate();
 
   const [students, setStudents] = useState([]);
+  const [companies, setCompanies] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [search, setSearch] = useState('');
+
   const [updatingId, setUpdatingId] = useState(null);
+  const [assigningId, setAssigningId] = useState(null);
+
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [savingAssignment, setSavingAssignment] = useState(false);
 
   // LOAD STUDENTS
   const fetchStudents = async () => {
@@ -43,20 +55,42 @@ export default function StudentList() {
     }
   };
 
+  // LOAD APPROVED COMPANIES
+  const fetchCompanies = async () => {
+    try {
+      const { data } = await api.get(
+        '/assignments/approved-companies'
+      );
+
+      setCompanies(data.companies || []);
+    } catch (err) {
+      console.error('Failed to load approved companies:', err);
+
+      setError(
+        err.response?.data?.message ||
+        'Unable to load approved companies.'
+      );
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
+    fetchCompanies();
   }, []);
 
   // SEARCH STUDENTS
   const filtered = students.filter((s) => {
     const studentName = `${s.firstName || ''} ${s.lastName || ''}`;
 
+    const companyName = s.companyId?.name || 'Unassigned';
+
     const searchText = [
       studentName,
       s.studentNumber,
       s.program,
       s.email,
-      s.status
+      s.status,
+      companyName
     ]
       .join(' ')
       .toLowerCase();
@@ -89,6 +123,61 @@ export default function StudentList() {
     navigate(`/students/${studentId}`);
   };
 
+  // OPEN ASSIGNMENT MODAL
+  const openAssignmentModal = (student) => {
+    setSelectedStudent(student);
+    setSelectedCompany(student.companyId?._id || '');
+    setError('');
+    setSuccess('');
+  };
+
+  // CLOSE ASSIGNMENT MODAL
+  const closeAssignmentModal = () => {
+    if (savingAssignment) return;
+
+    setSelectedStudent(null);
+    setSelectedCompany('');
+  };
+
+  // ASSIGN OR CHANGE COMPANY
+  const handleAssignment = async (e) => {
+    e.preventDefault();
+
+    if (!selectedStudent || !selectedCompany) {
+      setError('Please select a company.');
+      return;
+    }
+
+    try {
+      setSavingAssignment(true);
+      setError('');
+      setSuccess('');
+
+      const { data } = await api.post('/assignments', {
+        studentId: selectedStudent._id,
+        companyId: selectedCompany
+      });
+
+      setSuccess(
+        data.message || 'Student assigned successfully.'
+      );
+
+      setSelectedStudent(null);
+      setSelectedCompany('');
+
+      await fetchStudents();
+    } catch (err) {
+      console.error('Student assignment error:', err);
+
+      setError(
+        err.response?.data?.message ||
+        'Failed to assign student to company.'
+      );
+    } finally {
+      setSavingAssignment(false);
+    }
+  };
+
   // ACTIVATE OR DEACTIVATE STUDENT
   const handleStatusChange = async (student) => {
     const newStatus =
@@ -111,11 +200,11 @@ export default function StudentList() {
       );
 
       setSuccess(
-        data.message || `Student account ${newStatus.toLowerCase()} successfully.`
+        data.message ||
+        `Student account ${newStatus.toLowerCase()} successfully.`
       );
 
       await fetchStudents();
-
     } catch (err) {
       console.error('Student status update error:', err);
 
@@ -139,7 +228,7 @@ export default function StudentList() {
           </h1>
 
           <p className="text-sm text-muted mt-1">
-            Monitor and manage all registered OJT students
+            Monitor students, manage accounts, and assign OJT companies
           </p>
         </div>
 
@@ -150,7 +239,10 @@ export default function StudentList() {
           </div>
 
           <button
-            onClick={fetchStudents}
+            onClick={() => {
+              fetchStudents();
+              fetchCompanies();
+            }}
             disabled={loading}
             className="p-3 rounded-xl bg-white shadow-card text-primary hover:bg-primary-light disabled:opacity-50"
             title="Refresh students"
@@ -165,8 +257,15 @@ export default function StudentList() {
 
       {/* ERROR MESSAGE */}
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-xl">
-          {error}
+        <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center justify-between gap-3">
+          <span>{error}</span>
+
+          <button
+            onClick={() => setError('')}
+            className="shrink-0"
+          >
+            <X size={18} />
+          </button>
         </div>
       )}
 
@@ -189,7 +288,7 @@ export default function StudentList() {
             />
 
             <input
-              placeholder="Search by name, ID, email, or program..."
+              placeholder="Search by name, ID, email, program, or company..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-12 pl-12 pr-4 rounded-2xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary-light border-none"
@@ -221,6 +320,10 @@ export default function StudentList() {
 
                   <th className="px-6 py-4">
                     Program
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Company
                   </th>
 
                   <th className="px-6 py-4">
@@ -261,7 +364,21 @@ export default function StudentList() {
                     </td>
 
                     <td className="px-6 py-4 text-muted">
-                      {s.program}
+                      {s.program || '—'}
+                    </td>
+
+                    {/* COMPANY ASSIGNMENT */}
+                    <td className="px-6 py-4">
+                      {s.companyId?.name ? (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                          <Building2 size={14} />
+                          {s.companyId.name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">
+                          Not assigned
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
@@ -272,15 +389,31 @@ export default function StudentList() {
                       </span>
                     </td>
 
-                    {/* VIEW DETAILS */}
+                    {/* ACTIONS */}
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => viewStudent(s._id)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-light text-primary hover:bg-primary hover:text-white transition font-semibold"
-                      >
-                        <Eye size={16} />
-                        View
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => viewStudent(s._id)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-light text-primary hover:bg-primary hover:text-white transition font-semibold"
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+
+                        <button
+                          onClick={() => openAssignmentModal(s)}
+                          disabled={assigningId === s._id}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition font-semibold disabled:opacity-50"
+                        >
+                          {s.companyId ? (
+                            <Building2 size={16} />
+                          ) : (
+                            <UserPlus size={16} />
+                          )}
+
+                          {s.companyId ? 'Change' : 'Assign'}
+                        </button>
+                      </div>
                     </td>
 
                     {/* ACCOUNT MANAGEMENT */}
@@ -319,7 +452,7 @@ export default function StudentList() {
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-6 py-10 text-center text-muted"
                     >
                       No students found.
@@ -331,6 +464,124 @@ export default function StudentList() {
           </div>
         )}
       </div>
+
+      {/* COMPANY ASSIGNMENT MODAL */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6">
+
+            {/* MODAL HEADER */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2 text-primary mb-2">
+                  <Building2 size={22} />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    Company Assignment
+                  </span>
+                </div>
+
+                <h2 className="text-2xl font-extrabold text-text">
+                  {selectedStudent.companyId
+                    ? 'Change Company'
+                    : 'Assign Company'}
+                </h2>
+
+                <p className="text-sm text-muted mt-1">
+                  Assigning {selectedStudent.firstName} {selectedStudent.lastName}
+                </p>
+              </div>
+
+              <button
+                onClick={closeAssignmentModal}
+                disabled={savingAssignment}
+                className="p-2 rounded-xl hover:bg-background text-muted"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignment} className="space-y-5">
+
+              <div>
+                <label className="block text-sm font-bold text-text mb-2">
+                  Select Approved Company
+                </label>
+
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  required
+                  className="w-full h-12 px-4 rounded-xl bg-background border border-border text-sm outline-none focus:ring-2 focus:ring-primary-light"
+                >
+                  <option value="">
+                    Choose a company
+                  </option>
+
+                  {companies.map((company) => (
+                    <option
+                      key={company._id}
+                      value={company._id}
+                    >
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+
+                {companies.length === 0 && (
+                  <p className="text-xs text-red-600 mt-2">
+                    No approved companies are currently available.
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-primary-light/50 rounded-xl p-4">
+                <p className="text-xs text-muted mb-1">
+                  Student
+                </p>
+
+                <p className="font-bold text-text">
+                  {selectedStudent.firstName} {selectedStudent.lastName}
+                </p>
+
+                <p className="text-xs text-muted mt-1">
+                  Student ID: {selectedStudent.studentNumber}
+                </p>
+
+                <p className="text-xs text-muted mt-2">
+                  Current company: {selectedStudent.companyId?.name || 'Not assigned'}
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeAssignmentModal}
+                  disabled={savingAssignment}
+                  className="px-5 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    savingAssignment ||
+                    !selectedCompany ||
+                    companies.length === 0
+                  }
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold hover:opacity-90 disabled:opacity-50"
+                >
+                  <Save size={16} />
+
+                  {savingAssignment
+                    ? 'Saving...'
+                    : 'Save Assignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

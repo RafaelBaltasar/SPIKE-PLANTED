@@ -1,17 +1,20 @@
+
 const mongoose = require('mongoose');
 
 const Student = require('../models/Student');
 const OjtRecord = require('../models/OjtRecord');
 const WeeklyJournal = require('../models/WeeklyJournal');
 const Document = require('../models/Document');
-const User = require('../models/User'); // <-- Added User model for approvals
+const User = require('../models/User');
 
 // ─────────────────────────────────────────────
 // COORDINATOR: GET ALL STUDENTS
 // ─────────────────────────────────────────────
 exports.getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find().sort({ lastName: 1 });
+    const students = await Student.find()
+      .populate('companyId', 'name contactPerson email')
+      .sort({ lastName: 1 });
 
     return res.status(200).json({
       success: true,
@@ -27,6 +30,7 @@ exports.getAllStudents = async (req, res) => {
     });
   }
 };
+
 
 // ─────────────────────────────────────────────
 // COORDINATOR: GET STUDENT RECORD
@@ -57,6 +61,7 @@ exports.getStudentRecord = async (req, res) => {
       Document.find({ student: studentId }).sort({ createdAt: -1 })
     ]);
 
+    // Only coordinator-approved attendance counts toward OJT hours.
     const totalHours = attendance
       .filter(record => record.timeOut && record.status === 'Approved')
       .reduce((total, record) => total + (record.totalHours || 0), 0);
@@ -74,6 +79,7 @@ exports.getStudentRecord = async (req, res) => {
       journals,
       documents
     });
+
   } catch (error) {
     console.error('Get student record error:', error.message);
 
@@ -84,13 +90,14 @@ exports.getStudentRecord = async (req, res) => {
   }
 };
 
+
 // ─────────────────────────────────────────────
 // COORDINATOR: REVIEW WEEKLY JOURNAL
 // ─────────────────────────────────────────────
 exports.reviewJournal = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, feedback } = req.body;
+    const { status, feedback } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -106,44 +113,78 @@ exports.reviewJournal = async (req, res) => {
       });
     }
 
-    if (status === 'Rejected' && (!feedback || !feedback.trim())) {
+    if (
+      status === 'Rejected' &&
+      (typeof feedback !== 'string' || !feedback.trim())
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Feedback is required when rejecting a journal.'
       });
     }
 
+    if (
+      feedback !== undefined &&
+      (
+        typeof feedback !== 'string' ||
+        feedback.trim().length > 2000
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback must be valid text and not exceed 2000 characters.'
+      });
+    }
+
+    const updateFields = {
+      status: status === 'Rejected' ? 'Draft' : 'Approved',
+      feedback: (feedback || '').trim(),
+      reviewedBy: req.user._id,
+      reviewedAt: new Date()
+    };
+
+    // Return rejected journals to the student for correction.
+    // The next submission must go through supervisor review again.
+    if (status === 'Rejected') {
+      updateFields.supervisorStatus = 'Pending';
+      updateFields.supervisorReviewedBy = null;
+      updateFields.supervisorReviewedAt = null;
+      updateFields.supervisorRemarks = '';
+    }
+
     const journal = await WeeklyJournal.findOneAndUpdate(
       {
         _id: id,
-        status: 'Submitted'
+        status: 'Submitted',
+        supervisorStatus: 'Approved'
       },
       {
-        $set: {
-          status,
-          feedback: (feedback || '').trim(),
-          reviewedBy: req.user._id,
-          reviewedAt: new Date()
-        }
+        $set: updateFields
       },
       {
         new: true,
         runValidators: true
       }
-    ).populate('student', 'studentNumber firstName lastName program');
+    ).populate(
+      'student',
+      'studentNumber firstName lastName program'
+    );
 
     if (!journal) {
-      return res.status(404).json({
+      return res.status(409).json({
         success: false,
-        message: 'Submitted journal not found. It may already have been reviewed.'
+        message: 'Journal cannot be reviewed yet. It must first be approved by the company supervisor.'
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Journal ${status.toLowerCase()} successfully!`,
+      message: status === 'Approved'
+        ? 'Journal approved successfully!'
+        : 'Journal rejected. The student can edit and resubmit it.',
       journal
     });
+
   } catch (error) {
     console.error('Review journal error:', error.message);
 
@@ -154,13 +195,14 @@ exports.reviewJournal = async (req, res) => {
   }
 };
 
+
 // ─────────────────────────────────────────────
 // COORDINATOR: REVIEW ATTENDANCE
 // ─────────────────────────────────────────────
 exports.reviewAttendance = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, remarks } = req.body;
+    const { status, remarks } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -176,17 +218,36 @@ exports.reviewAttendance = async (req, res) => {
       });
     }
 
-    if (status === 'Rejected' && (!remarks || !remarks.trim())) {
+    if (
+      status === 'Rejected' &&
+      (typeof remarks !== 'string' || !remarks.trim())
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Remarks are required when rejecting attendance.'
       });
     }
 
+    if (
+      remarks !== undefined &&
+      (
+        typeof remarks !== 'string' ||
+        remarks.trim().length > 2000
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Remarks must be valid text and not exceed 2000 characters.'
+      });
+    }
+
+    // Coordinator can only review completed attendance
+    // already approved by the company supervisor.
     const attendance = await OjtRecord.findOneAndUpdate(
       {
         _id: id,
         status: 'Pending',
+        supervisorStatus: 'Approved',
         timeOut: { $ne: null }
       },
       {
@@ -201,12 +262,15 @@ exports.reviewAttendance = async (req, res) => {
         new: true,
         runValidators: true
       }
-    ).populate('student', 'studentNumber firstName lastName program');
+    ).populate(
+      'student',
+      'studentNumber firstName lastName program'
+    );
 
     if (!attendance) {
-      return res.status(404).json({
+      return res.status(409).json({
         success: false,
-        message: 'Pending completed attendance record not found. It may already have been reviewed.'
+        message: 'Attendance cannot be reviewed yet. It must first be approved by the company supervisor.'
       });
     }
 
@@ -215,6 +279,7 @@ exports.reviewAttendance = async (req, res) => {
       message: `Attendance ${status.toLowerCase()} successfully!`,
       attendance
     });
+
   } catch (error) {
     console.error('Review attendance error:', error.message);
 
@@ -224,6 +289,7 @@ exports.reviewAttendance = async (req, res) => {
     });
   }
 };
+
 
 // ─────────────────────────────────────────────
 // COORDINATOR: GET DASHBOARD SUMMARY
@@ -239,12 +305,16 @@ exports.getDashboardSummary = async (req, res) => {
     ] = await Promise.all([
       Student.countDocuments(),
 
+      // Only supervisor-approved journals await coordinator review.
       WeeklyJournal.countDocuments({
-        status: 'Submitted'
+        status: 'Submitted',
+        supervisorStatus: 'Approved'
       }),
 
+      // Only supervisor-approved attendance awaits coordinator review.
       OjtRecord.countDocuments({
         status: 'Pending',
+        supervisorStatus: 'Approved',
         timeOut: { $ne: null }
       }),
 
@@ -268,6 +338,7 @@ exports.getDashboardSummary = async (req, res) => {
       ])
     ]);
 
+    // OJT completion requirement: 486 hours.
     const completedOjt = approvedHours.filter(
       record => record.totalHours >= 486
     ).length;
@@ -284,6 +355,7 @@ exports.getDashboardSummary = async (req, res) => {
         completedOjt
       }
     });
+
   } catch (error) {
     console.error('Dashboard summary error:', error.message);
 
@@ -294,15 +366,20 @@ exports.getDashboardSummary = async (req, res) => {
   }
 };
 
+
 // ─────────────────────────────────────────────
-// COORDINATOR: GET ALL SUBMITTED JOURNALS
+// COORDINATOR: GET SUPERVISOR-APPROVED JOURNALS
 // ─────────────────────────────────────────────
 exports.getAllJournals = async (req, res) => {
   try {
     const journals = await WeeklyJournal.find({
-      status: 'Submitted'
+      status: 'Submitted',
+      supervisorStatus: 'Approved'
     })
-      .populate('student', 'studentNumber firstName lastName program')
+      .populate(
+        'student',
+        'studentNumber firstName lastName program'
+      )
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -310,6 +387,7 @@ exports.getAllJournals = async (req, res) => {
       count: journals.length,
       journals
     });
+
   } catch (error) {
     console.error('Get all journals error:', error.message);
 
@@ -320,16 +398,21 @@ exports.getAllJournals = async (req, res) => {
   }
 };
 
+
 // ─────────────────────────────────────────────
-// COORDINATOR: GET ALL PENDING COMPLETED ATTENDANCE
+// COORDINATOR: GET SUPERVISOR-APPROVED ATTENDANCE
 // ─────────────────────────────────────────────
 exports.getPendingAttendance = async (req, res) => {
   try {
     const attendance = await OjtRecord.find({
       status: 'Pending',
+      supervisorStatus: 'Approved',
       timeOut: { $ne: null }
     })
-      .populate('student', 'studentNumber firstName lastName program')
+      .populate(
+        'student',
+        'studentNumber firstName lastName program'
+      )
       .sort({ date: -1 });
 
     return res.status(200).json({
@@ -337,6 +420,7 @@ exports.getPendingAttendance = async (req, res) => {
       count: attendance.length,
       attendance
     });
+
   } catch (error) {
     console.error('Get pending attendance error:', error.message);
 
@@ -347,11 +431,14 @@ exports.getPendingAttendance = async (req, res) => {
   }
 };
 
+
+// ─────────────────────────────────────────────
 // COORDINATOR: UPDATE STUDENT ACCOUNT STATUS
+// ─────────────────────────────────────────────
 exports.updateStudentStatus = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       return res.status(400).json({
@@ -397,26 +484,32 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
+
 // ─────────────────────────────────────────────
-// ADMIN: GET PENDING ACCOUNTS (For Approvals)
+// ADMIN: GET PENDING ACCOUNTS
 // ─────────────────────────────────────────────
 exports.getPendingAccounts = async (req, res) => {
   try {
-    const pendingUsers = await User.find({ isActive: false }).select('-password');
-    
+    const pendingUsers = await User.find({
+      isActive: false
+    }).select('-password');
+
     return res.status(200).json({
       success: true,
       count: pendingUsers.length,
       accounts: pendingUsers
     });
+
   } catch (error) {
     console.error('Get pending accounts error:', error.message);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve pending accounts.' 
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve pending accounts.'
     });
   }
 };
+
 
 // ─────────────────────────────────────────────
 // ADMIN: APPROVE ACCOUNT
@@ -424,15 +517,31 @@ exports.getPendingAccounts = async (req, res) => {
 exports.approveAccount = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account ID.'
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
-      id, 
-      { $set: { isActive: true } }, 
-      { new: true }
+      id,
+      {
+        $set: {
+          isActive: true
+        }
+      },
+      {
+        new: true
+      }
     ).select('-password');
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
     }
 
     return res.status(200).json({
@@ -440,11 +549,13 @@ exports.approveAccount = async (req, res) => {
       message: 'Account approved successfully!',
       user
     });
+
   } catch (error) {
     console.error('Approve account error:', error.message);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to approve account.' 
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to approve account.'
     });
   }
 };

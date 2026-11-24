@@ -43,6 +43,7 @@ const ojtRecordSchema = new mongoose.Schema(
       default: ''
     },
 
+    // Coordinator's final review
     status: {
       type: String,
       enum: ['Pending', 'Approved', 'Rejected'],
@@ -53,6 +54,34 @@ const ojtRecordSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null
+    },
+
+    reviewedAt: {
+      type: Date,
+      default: null
+    },
+
+    // Company supervisor's separate review
+    supervisorStatus: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending'
+    },
+
+    supervisorReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+
+    supervisorReviewedAt: {
+      type: Date,
+      default: null
+    },
+
+    supervisorRemarks: {
+      type: String,
+      default: ''
     }
   },
   {
@@ -64,7 +93,10 @@ const ojtRecordSchema = new mongoose.Schema(
 // on the same Philippine calendar date.
 ojtRecordSchema.index(
   { student: 1, attendanceDate: 1 },
-  { unique: true, name: 'unique_student_attendance_date' }
+  {
+    unique: true,
+    name: 'unique_student_attendance_date'
+  }
 );
 
 module.exports = mongoose.model('OjtRecord', ojtRecordSchema);

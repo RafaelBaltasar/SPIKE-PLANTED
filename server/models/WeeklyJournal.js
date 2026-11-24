@@ -53,6 +53,7 @@ const weeklyJournalSchema = new mongoose.Schema(
       maxlength: 5000
     },
 
+    // Coordinator's final review
     status: {
       type: String,
       enum: ['Draft', 'Submitted', 'Approved', 'Rejected'],
@@ -75,6 +76,31 @@ const weeklyJournalSchema = new mongoose.Schema(
     reviewedAt: {
       type: Date,
       default: null
+    },
+
+    // Company supervisor's separate review
+    supervisorStatus: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending'
+    },
+
+    supervisorReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+
+    supervisorReviewedAt: {
+      type: Date,
+      default: null
+    },
+
+    supervisorRemarks: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 2000
     }
   },
   {
