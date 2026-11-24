@@ -9,7 +9,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { api } from '../../api/axios';
+import { api, getFileUrl } from '../../api/axios';
 
 export default function ReviewSubmissions() {
   const [documents, setDocuments] = useState([]);
@@ -338,7 +338,7 @@ export default function ReviewSubmissions() {
                   </p>
 
                   <a
-                    href={`http://localhost:5000${doc.filePath}`}
+                    href={getFileUrl(doc.filePath)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-block text-xs text-primary font-bold hover:underline"

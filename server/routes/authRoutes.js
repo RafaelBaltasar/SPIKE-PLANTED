@@ -26,7 +26,11 @@ router.get('/me', protect, (req, res) => {
       fullName: req.user.fullName,
       email: req.user.email,
       role: req.user.role,
-      student: req.user.student
+      student: req.user.student,
+      company: req.user.company,
+      companyId: req.user.companyId,
+      department: req.user.department,
+      avatar: req.user.avatar
     }
   });
 });

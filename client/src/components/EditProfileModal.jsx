@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { X, Save, Upload, User } from 'lucide-react';
-import { api } from '../api/axios';
+import { api, getFileUrl } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function EditProfileModal({ initialData, onClose, onSuccess }) {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   
   const [form, setForm] = useState({
     fullName: initialData?.fullName || '',
@@ -28,7 +28,7 @@ export default function EditProfileModal({ initialData, onClose, onSuccess }) {
       // Update the global auth context so the topbar name updates instantly
       const token = localStorage.getItem('spikeToken');
       if (data.user) {
-        login(token, { ...data.user, role: initialData.role }); 
+        login(token, { ...user, ...data.user });
       }
       
       onSuccess(); // Tell parent to refresh data
@@ -61,7 +61,7 @@ export default function EditProfileModal({ initialData, onClose, onSuccess }) {
       
       // Update global user state so the top bar picture changes immediately
       const token = localStorage.getItem('spikeToken');
-      login(token, { ...initialData, avatar: data.avatar }); 
+      login(token, { ...user, avatar: data.avatar });
       
       onSuccess(); 
     } catch (err) {
@@ -88,7 +88,7 @@ export default function EditProfileModal({ initialData, onClose, onSuccess }) {
             <div className="relative w-24 h-24 rounded-full bg-primary-light flex items-center justify-center text-primary text-3xl font-bold overflow-hidden border-4 border-white shadow-sm mb-2">
               {avatarPreview ? (
                 <img 
-                  src={avatarPreview.startsWith('data:') || avatarPreview.startsWith('http') ? avatarPreview : `http://localhost:5000${avatarPreview}`} 
+                  src={avatarPreview.startsWith('data:') || avatarPreview.startsWith('http') ? avatarPreview : getFileUrl(avatarPreview)}
                   alt="avatar" 
                   className="w-full h-full object-cover" 
                 />

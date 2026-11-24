@@ -9,16 +9,12 @@ const documentSchema = new mongoose.Schema(
       required: true
     },
 
+    // Supports both predefined and supervisor-created requirements.
     documentType: {
       type: String,
-      enum: [
-        'MOA',
-        'Insurance',
-        'Endorsement Letter',
-        'Medical Certificate',
-        'Other'
-      ],
-      required: true
+      trim: true,
+      required: true,
+      maxlength: 120
     },
 
     fileName: {

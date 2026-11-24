@@ -15,8 +15,8 @@ exports.getMyProfile = async (req, res) => {
     let companyData = null;
     
     // If the student has a company assigned, fetch it
-    if (user.student && user.student.company) {
-      companyData = await Company.findOne({ name: user.student.company });
+    if (user.student && user.student.companyId) {
+      companyData = await Company.findById(user.student.companyId);
     }
 
     // Get their documents
@@ -53,9 +53,22 @@ exports.updateMyProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
+    const normalizedEmail = email?.trim().toLowerCase() || user.email;
+
+    if (normalizedEmail !== user.email) {
+      const duplicate = await User.findOne({
+        email: normalizedEmail,
+        _id: { $ne: user._id }
+      });
+
+      if (duplicate) {
+        return res.status(400).json({ success: false, message: 'Email already registered.' });
+      }
+    }
+
     // Update User
     user.fullName = fullName || user.fullName;
-    user.email = email || user.email;
+    user.email = normalizedEmail;
     await user.save();
 
     // Update Student Profile if exists
@@ -65,6 +78,7 @@ exports.updateMyProfile = async (req, res) => {
         student.firstName = fullName ? fullName.split(' ')[0] : student.firstName;
         student.lastName = fullName ? fullName.split(' ').slice(-1)[0] : student.lastName;
         student.contactNumber = contactNumber || student.contactNumber;
+        student.email = normalizedEmail;
         await student.save();
       }
     }
@@ -82,6 +96,11 @@ exports.updateMyProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Update profile error:', error.message);
+
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Email already registered.' });
+    }
+
     return res.status(500).json({ success: false, message: 'Failed to update profile.' });
   }
 };

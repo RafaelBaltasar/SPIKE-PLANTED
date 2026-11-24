@@ -6,6 +6,7 @@ import {
   Building, CheckCircle, X, ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getFileUrl } from '../api/axios';
 import { useNotifications } from '../context/NotificationContext';
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,17 +19,20 @@ const navItems = {
     { to: '/journals', icon: BookOpen, label: 'Weekly Journals' },
     { to: '/documents', icon: FileText, label: 'Documents' },
   ],
+
   staff: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/interns', icon: Users, label: 'My Interns' },
     { to: '/supervisor-reviews', icon: ClipboardCheck, label: 'Supervisor Reviews' },
+    { to: '/post-requirements', icon: FileText, label: 'Post Requirements' },
   ],
+
   coordinator: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/students', icon: Users, label: 'Student List' },
     { to: '/review', icon: CheckCircle, label: 'Approvals' },
-    { to: '/documents', icon: FileText, label: 'Documents' },
   ],
+
   admin: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/students', icon: Users, label: 'All Students' },
@@ -39,6 +43,7 @@ const navItems = {
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
+
   const {
     notifications,
     unreadCount,
@@ -49,6 +54,7 @@ export default function AppLayout() {
   } = useNotifications();
 
   const navigate = useNavigate();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
@@ -74,10 +80,13 @@ export default function AppLayout() {
         transition-transform duration-300 shadow-soft
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
+
+        {/* LOGO */}
         <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center mb-10">
           <span className="text-xl font-extrabold text-white">S</span>
         </div>
 
+        {/* NAVIGATION */}
         <nav className="flex flex-col gap-2 flex-1">
           {items.map((item) => (
             <NavLink
@@ -98,7 +107,9 @@ export default function AppLayout() {
           ))}
         </nav>
 
+        {/* SIDEBAR ACTIONS */}
         <div className="flex flex-col gap-2">
+
           <button
             onClick={() => alert('Help Center coming soon!')}
             title="Help"
@@ -127,7 +138,7 @@ export default function AppLayout() {
           <div className="mt-3 w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-sm font-bold text-primary overflow-hidden">
             {user?.avatar ? (
               <img
-                src={`http://localhost:5000${user.avatar}`}
+                src={getFileUrl(user.avatar)}
                 alt="Avatar"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -144,6 +155,8 @@ export default function AppLayout() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 ml-[88px] lg:ml-0">
+
+        {/* HEADER */}
         <header className="flex items-center justify-between gap-4 px-6 lg:px-10 py-6">
 
           <button
@@ -153,6 +166,7 @@ export default function AppLayout() {
             <Menu size={20} />
           </button>
 
+          {/* SEARCH */}
           <div className="flex-1 max-w-md relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
             <input
@@ -185,10 +199,12 @@ export default function AppLayout() {
               {/* NOTIFICATION DROPDOWN */}
               {isOpen && (
                 <div className="absolute top-14 right-0 w-80 bg-white rounded-3xl shadow-card border border-border overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+
                   <div className="flex items-center justify-between p-4 border-b border-border">
                     <h3 className="font-extrabold text-sm text-text">
                       Notifications
                     </h3>
+
                     <button
                       onClick={() => setIsOpen(false)}
                       className="text-muted hover:text-text"
@@ -211,6 +227,7 @@ export default function AppLayout() {
                           }`}
                         >
                           <p className="text-text">{n.text}</p>
+
                           <p className="text-[10px] text-muted mt-1">
                             {formatDistanceToNow(new Date(n.time))} ago
                           </p>
@@ -221,18 +238,21 @@ export default function AppLayout() {
 
                   {notifications.length > 0 && (
                     <div className="p-3 bg-background flex justify-between border-t border-border">
+
                       <button
                         onClick={markAllAsRead}
                         className="text-xs font-bold text-primary hover:underline"
                       >
                         Mark all as read
                       </button>
+
                       <button
                         onClick={clearNotifications}
                         className="text-xs font-bold text-danger hover:underline"
                       >
                         Clear all
                       </button>
+
                     </div>
                   )}
                 </div>
@@ -248,10 +268,11 @@ export default function AppLayout() {
                 }}
                 className="hidden sm:flex items-center gap-3 px-4 h-11 rounded-2xl bg-white shadow-soft hover:bg-gray-50 transition cursor-pointer"
               >
+
                 <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white overflow-hidden">
                   {user?.avatar ? (
                     <img
-                      src={`http://localhost:5000${user.avatar}`}
+                      src={getFileUrl(user.avatar)}
                       alt="Avatar"
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -268,6 +289,7 @@ export default function AppLayout() {
                   <p className="font-semibold leading-tight">
                     {user?.fullName}
                   </p>
+
                   <p className="text-muted capitalize leading-tight">
                     {user?.role}
                   </p>
@@ -291,12 +313,14 @@ export default function AppLayout() {
           </div>
         </header>
 
+        {/* PAGE CONTENT */}
         <div
           className="flex-1 px-6 lg:px-10 pb-10"
           onClick={handleMainClick}
         >
           <Outlet />
         </div>
+
       </main>
     </div>
   );

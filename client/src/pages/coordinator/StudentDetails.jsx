@@ -12,7 +12,7 @@ import {
   CheckCircle,
   Ban
 } from 'lucide-react';
-import { api } from '../../api/axios';
+import { api, getFileUrl } from '../../api/axios';
 
 export default function StudentDetails() {
   const { studentId } = useParams();
@@ -129,23 +129,6 @@ export default function StudentDetails() {
       default:
         return 'bg-gray-100 text-gray-700';
     }
-  };
-
-  const getFileUrl = (filePath) => {
-    if (!filePath) return '#';
-
-    if (
-      filePath.startsWith('http://') ||
-      filePath.startsWith('https://')
-    ) {
-      return filePath;
-    }
-
-    const serverUrl = (
-      api.defaults.baseURL || 'http://localhost:5000/api'
-    ).replace(/\/api\/?$/, '');
-
-    return `${serverUrl}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
   };
 
   if (loading) {

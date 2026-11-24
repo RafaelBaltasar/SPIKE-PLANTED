@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 
@@ -5,13 +6,61 @@ const {
   uploadDocument,
   getMyDocuments,
   getAllDocuments,
-  reviewDocument
+  reviewDocument,
+  getRequiredDocuments,
+  createRequiredDocument,
+  toggleRequiredDocument,
+  getActiveRequirements
 } = require('../controllers/documentController');
 
-const { protect, authorize } = require('../middleware/authMiddleware');
+const {
+  protect,
+  authorize
+} = require('../middleware/authMiddleware');
+
 const upload = require('../middleware/uploadMiddleware');
 
-// Student: Upload a document
+// ============================================================
+// REQUIREMENT MANAGEMENT
+// ============================================================
+
+// Staff / Coordinator / Admin: View managed requirements
+router.get(
+  '/requirements/manage',
+  protect,
+  authorize('staff', 'coordinator', 'admin'),
+  getRequiredDocuments
+);
+
+// Staff / Coordinator / Admin: Create requirement
+router.post(
+  '/requirements',
+  protect,
+  authorize('staff', 'coordinator', 'admin'),
+  createRequiredDocument
+);
+
+// Staff / Coordinator / Admin: Activate or hide requirement
+router.patch(
+  '/requirements/:id/toggle',
+  protect,
+  authorize('staff', 'coordinator', 'admin'),
+  toggleRequiredDocument
+);
+
+// Student: View active requirements for assigned company
+router.get(
+  '/requirements',
+  protect,
+  authorize('student'),
+  getActiveRequirements
+);
+
+// ============================================================
+// STUDENT DOCUMENTS
+// ============================================================
+
+// Student: Upload document
 router.post(
   '/',
   protect,
@@ -20,7 +69,7 @@ router.post(
   uploadDocument
 );
 
-// Student: Get my documents
+// Student: View own documents
 router.get(
   '/my-documents',
   protect,
@@ -28,7 +77,11 @@ router.get(
   getMyDocuments
 );
 
-// Coordinator/Admin: Get all documents
+// ============================================================
+// COORDINATOR / ADMIN DOCUMENT REVIEW
+// ============================================================
+
+// Coordinator/Admin: View all documents
 router.get(
   '/',
   protect,
@@ -36,7 +89,7 @@ router.get(
   getAllDocuments
 );
 
-// Coordinator/Admin: Approve/Reject a document
+// Coordinator/Admin: Approve or reject document
 router.patch(
   '/:id/review',
   protect,

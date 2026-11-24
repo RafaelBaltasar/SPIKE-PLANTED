@@ -17,6 +17,7 @@ import Documents from './pages/student/Documents';
 import StaffDashboard from './pages/staff/StaffDashboard';
 import StaffInterns from './pages/staff/StaffInterns';
 import StaffReviews from './pages/staff/StaffReviews';
+import PostRequirements from './pages/staff/PostRequirements';
 
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
@@ -58,25 +59,100 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardRouter />} />
 
               {/* STUDENT */}
-              <Route path="/attendance" element={<Attendance />} />
-              <Route path="/journals" element={<Journals />} />
-              <Route path="/documents" element={<Documents />} />
+              <Route
+                path="/attendance"
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <Attendance />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/journals"
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <Journals />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/documents"
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <Documents />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* COMPANY SUPERVISOR */}
-              <Route path="/interns" element={<StaffInterns />} />
-              <Route path="/supervisor-reviews" element={<StaffReviews />} />
+              <Route
+                path="/interns"
+                element={
+                  <ProtectedRoute allowedRoles={['staff']}>
+                    <StaffInterns />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/supervisor-reviews"
+                element={
+                  <ProtectedRoute allowedRoles={['staff']}>
+                    <StaffReviews />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/post-requirements"
+                element={
+                  <ProtectedRoute allowedRoles={['staff']}>
+                    <PostRequirements />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* COORDINATOR & ADMIN */}
-              <Route path="/students" element={<StudentList />} />
+              <Route
+                path="/students"
+                element={
+                  <ProtectedRoute allowedRoles={['coordinator', 'admin']}>
+                    <StudentList />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/students/:studentId"
-                element={<StudentDetails />}
+                element={
+                  <ProtectedRoute allowedRoles={['coordinator', 'admin']}>
+                    <StudentDetails />
+                  </ProtectedRoute>
+                }
               />
-              <Route path="/review" element={<ReviewSubmissions />} />
+              <Route
+                path="/review"
+                element={
+                  <ProtectedRoute allowedRoles={['coordinator', 'admin']}>
+                    <ReviewSubmissions />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* ADMIN */}
-              <Route path="/companies" element={<ManageCompanies />} />
-              <Route path="/reports" element={<SystemReports />} />
+              <Route
+                path="/companies"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <ManageCompanies />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <SystemReports />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
             <Route

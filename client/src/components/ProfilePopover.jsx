@@ -5,7 +5,7 @@ import {
   FileText, Lock, CheckCircle2, X, AlertCircle, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api/axios';
+import { api, getFileUrl } from '../api/axios';
 import EditProfileModal from './EditProfileModal';
 
 export default function ProfilePopover({ onClose }) {
@@ -76,7 +76,7 @@ export default function ProfilePopover({ onClose }) {
           <div className="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center text-primary text-3xl font-bold border-4 border-white shadow-sm overflow-hidden shrink-0">
             {userInfo.avatar ? (
               <img 
-                src={`http://localhost:5000${userInfo.avatar}`} 
+                src={getFileUrl(userInfo.avatar)}
                 alt="Profile" 
                 className="w-full h-full object-cover"
                 onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerText = userInfo.fullName?.charAt(0) || 'U'; }}

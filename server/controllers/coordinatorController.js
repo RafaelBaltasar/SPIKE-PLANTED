@@ -5,7 +5,6 @@ const Student = require('../models/Student');
 const OjtRecord = require('../models/OjtRecord');
 const WeeklyJournal = require('../models/WeeklyJournal');
 const Document = require('../models/Document');
-const User = require('../models/User');
 
 // ─────────────────────────────────────────────
 // COORDINATOR: GET ALL STUDENTS
@@ -480,82 +479,6 @@ exports.updateStudentStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update student account status.'
-    });
-  }
-};
-
-
-// ─────────────────────────────────────────────
-// ADMIN: GET PENDING ACCOUNTS
-// ─────────────────────────────────────────────
-exports.getPendingAccounts = async (req, res) => {
-  try {
-    const pendingUsers = await User.find({
-      isActive: false
-    }).select('-password');
-
-    return res.status(200).json({
-      success: true,
-      count: pendingUsers.length,
-      accounts: pendingUsers
-    });
-
-  } catch (error) {
-    console.error('Get pending accounts error:', error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve pending accounts.'
-    });
-  }
-};
-
-
-// ─────────────────────────────────────────────
-// ADMIN: APPROVE ACCOUNT
-// ─────────────────────────────────────────────
-exports.approveAccount = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid account ID.'
-      });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          isActive: true
-        }
-      },
-      {
-        new: true
-      }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Account approved successfully!',
-      user
-    });
-
-  } catch (error) {
-    console.error('Approve account error:', error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to approve account.'
     });
   }
 };
